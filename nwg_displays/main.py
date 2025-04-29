@@ -19,15 +19,18 @@ import sys
 
 import gi
 
-gi.require_version('Gtk', '3.0')
+gi.require_version("Gtk", "3.0")
 try:
-    gi.require_version('GtkLayerShell', '0.1')
+    gi.require_version("GtkLayerShell", "0.1")
 except ValueError:
-    raise RuntimeError('\n\n' +
-                       'If you haven\'t installed GTK Layer Shell, you need to point Python to the\n' +
-                       'library by setting GI_TYPELIB_PATH and LD_LIBRARY_PATH to <build-dir>/src/.\n' +
-                       'For example you might need to run:\n\n' +
-                       'GI_TYPELIB_PATH=build/src LD_LIBRARY_PATH=build/src python3 ' + ' '.join(sys.argv))
+    raise RuntimeError(
+        "\n\n"
+        + "If you haven't installed GTK Layer Shell, you need to point Python to the\n"
+        + "library by setting GI_TYPELIB_PATH and LD_LIBRARY_PATH to <build-dir>/src/.\n"
+        + "For example you might need to run:\n\n"
+        + "GI_TYPELIB_PATH=build/src LD_LIBRARY_PATH=build/src python3 "
+        + " ".join(sys.argv)
+    )
 
 from gi.repository import Gtk, GLib, GtkLayerShell
 
@@ -45,12 +48,18 @@ old_config_dir = os.path.join(get_config_home(), "nwg-outputs")
 
 sway_config_dir = os.path.join(get_config_home(), "sway")
 if sway and not os.path.isdir(sway_config_dir):
-    print("WARNING: Couldn't find sway config directory '{}'".format(sway_config_dir), file=sys.stderr)
+    print(
+        "WARNING: Couldn't find sway config directory '{}'".format(sway_config_dir),
+        file=sys.stderr,
+    )
     sys.exit(1)
 
 hypr_config_dir = os.path.join(get_config_home(), "hypr")
 if hypr and not os.path.isdir(hypr_config_dir):
-    print("WARNING: Couldn't find Hyprland config directory '{}'".format(hypr_config_dir), file=sys.stderr)
+    print(
+        "WARNING: Couldn't find Hyprland config directory '{}'".format(hypr_config_dir),
+        file=sys.stderr,
+    )
     sys.exit(1)
 
 # Create empty files if not found
@@ -73,7 +82,9 @@ i3.get_outputs() does not return some output attributes, especially when connect
 i3.get_tree() on the other hand does not return inactive outputs. So we'll list attributes with .get_tree(),
 and the add inactive outputs, if any, from what we detect with .get_outputs()
 """
-outputs = {}  # Active outputs, listed from the sway tree; stores name and all attributes.
+outputs = (
+    {}
+)  # Active outputs, listed from the sway tree; stores name and all attributes.
 outputs_activity = {}  # Just a dictionary "name": is_active - from get_outputs()
 workspaces = {}  # "workspace_num": "display_name"
 
@@ -135,6 +146,306 @@ max_y = 0
 
 voc = {}
 
+# Add these functions to main.py
+
+
+def create_save_profile_dialog(btn):
+    """Creates a dialog to save the current configuration as a profile"""
+    global dialog_win
+    if dialog_win:
+        dialog_win.destroy()
+    dialog_win = Gtk.Window()
+    dialog_win.set_title(voc.get("save-profile", "Save Profile"))
+    dialog_win.set_resizable(False)
+    dialog_win.set_modal(True)
+    dialog_win.connect("key-release-event", handle_keyboard)
+
+    grid = Gtk.Grid()
+    for prop in ["margin_start", "margin_end", "margin_top", "margin_bottom"]:
+        grid.set_property(prop, 10)
+    grid.set_column_spacing(12)
+    grid.set_row_spacing(12)
+    dialog_win.add(grid)
+
+    # Name label and entry
+    lbl = Gtk.Label()
+    lbl.set_text(voc.get("profile-name", "Profile Name:"))
+    lbl.set_property("halign", Gtk.Align.END)
+    grid.attach(lbl, 0, 0, 1, 1)
+
+    entry = Gtk.Entry()
+    grid.attach(entry, 1, 0, 1, 1)
+
+    # Existing profiles label
+    if list_profiles():
+        lbl_existing = Gtk.Label()
+        lbl_existing.set_markup(
+            "<small>"
+            + voc.get("existing-profiles", "Existing profiles:")
+            + " "
+            + ", ".join(list_profiles())
+            + "</small>"
+        )
+        lbl_existing.set_line_wrap(True)
+        lbl_existing.set_max_width_chars(40)
+        grid.attach(lbl_existing, 0, 1, 2, 1)
+
+    # Buttons
+    box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+    grid.attach(box, 0, 2, 2, 1)
+
+    btn_save = Gtk.Button()
+    btn_save.set_label(voc.get("save", "Save"))
+    btn_save.connect("clicked", on_save_profile_btn, dialog_win, entry)
+    box.pack_end(btn_save, False, False, 0)
+
+    btn_cancel = Gtk.Button()
+    btn_cancel.set_label(voc.get("cancel", "Cancel"))
+    btn_cancel.connect("clicked", close_dialog, dialog_win)
+    box.pack_end(btn_cancel, False, False, 6)
+
+    dialog_win.show_all()
+
+
+def on_save_profile_btn(w, win, entry):
+    """Handles saving a profile when the save button is clicked"""
+    profile_name = entry.get_text().strip()
+    if not profile_name:
+        # Show error - empty name not allowed
+        show_error_dialog(
+            win, voc.get("error-empty-name", "Profile name cannot be empty")
+        )
+        return
+
+    # Check if profile already exists
+    if profile_name in list_profiles():
+        # Confirm overwrite
+        confirm_overwrite_dialog(win, profile_name)
+        return
+
+    # Save profile
+    if save_profile(
+        profile_name, display_buttons, outputs_activity, use_desc=config["use-desc"]
+    ):
+        notify(
+            voc.get("profile-saved", "Profile Saved"),
+            voc.get("profile-saved-message", "Configuration saved as '{}'").format(
+                profile_name
+            ),
+        )
+        close_dialog(w, win)
+    else:
+        show_error_dialog(win, voc.get("error-saving-profile", "Error saving profile"))
+
+
+def confirm_overwrite_dialog(parent_win, profile_name):
+    """Shows a dialog to confirm overwriting an existing profile"""
+    confirm_dialog = Gtk.MessageDialog(
+        transient_for=parent_win,
+        flags=0,
+        message_type=Gtk.MessageType.QUESTION,
+        buttons=Gtk.ButtonsType.YES_NO,
+        text=voc.get("confirm-overwrite", "Overwrite existing profile?"),
+    )
+    confirm_dialog.format_secondary_text(
+        voc.get(
+            "confirm-overwrite-message",
+            "Profile '{}' already exists. Do you want to overwrite it?",
+        ).format(profile_name)
+    )
+    response = confirm_dialog.run()
+    confirm_dialog.destroy()
+
+    if response == Gtk.ResponseType.YES:
+        save_profile(
+            profile_name, display_buttons, outputs_activity, use_desc=config["use-desc"]
+        )
+        notify(
+            voc.get("profile-saved", "Profile Saved"),
+            voc.get("profile-saved-message", "Configuration saved as '{}'").format(
+                profile_name
+            ),
+        )
+        close_dialog(None, parent_win)
+
+
+def show_error_dialog(parent_win, message):
+    """Shows an error dialog with the given message"""
+    error_dialog = Gtk.MessageDialog(
+        transient_for=parent_win,
+        flags=0,
+        message_type=Gtk.MessageType.ERROR,
+        buttons=Gtk.ButtonsType.OK,
+        text=voc.get("error", "Error"),
+    )
+    error_dialog.format_secondary_text(message)
+    error_dialog.run()
+    error_dialog.destroy()
+
+
+def create_load_profile_dialog(btn):
+    """Creates a dialog to load a saved profile"""
+    profiles = list_profiles()
+    if not profiles:
+        notify(
+            voc.get("no-profiles", "No Profiles"),
+            voc.get("no-profiles-message", "No saved profiles found"),
+        )
+        return
+
+    global dialog_win
+    if dialog_win:
+        dialog_win.destroy()
+    dialog_win = Gtk.Window()
+    dialog_win.set_title(voc.get("load-profile", "Load Profile"))
+    dialog_win.set_resizable(False)
+    dialog_win.set_modal(True)
+    dialog_win.connect("key-release-event", handle_keyboard)
+
+    grid = Gtk.Grid()
+    for prop in ["margin_start", "margin_end", "margin_top", "margin_bottom"]:
+        grid.set_property(prop, 10)
+    grid.set_column_spacing(12)
+    grid.set_row_spacing(12)
+    dialog_win.add(grid)
+
+    # Profile selection label and combo box
+    lbl = Gtk.Label()
+    lbl.set_text(voc.get("select-profile", "Select Profile:"))
+    lbl.set_property("halign", Gtk.Align.END)
+    grid.attach(lbl, 0, 0, 1, 1)
+
+    combo = Gtk.ComboBoxText()
+    for profile in profiles:
+        combo.append(profile, profile)
+    combo.set_active(0)
+    grid.attach(combo, 1, 0, 1, 1)
+
+    # Buttons
+    box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+    grid.attach(box, 0, 1, 2, 1)
+
+    btn_delete = Gtk.Button()
+    btn_delete.set_label(voc.get("delete", "Delete"))
+    btn_delete.connect("clicked", on_delete_profile_btn, dialog_win, combo)
+    box.pack_start(btn_delete, False, False, 0)
+
+    btn_load = Gtk.Button()
+    btn_load.set_label(voc.get("load", "Load"))
+    btn_load.connect("clicked", on_load_profile_btn, dialog_win, combo)
+    box.pack_end(btn_load, False, False, 0)
+
+    btn_cancel = Gtk.Button()
+    btn_cancel.set_label(voc.get("cancel", "Cancel"))
+    btn_cancel.connect("clicked", close_dialog, dialog_win)
+    box.pack_end(btn_cancel, False, False, 6)
+
+    dialog_win.show_all()
+
+
+def on_load_profile_btn(w, win, combo):
+    """Handles loading a profile when the load button is clicked"""
+    profile_name = combo.get_active_id()
+    if not profile_name:
+        return
+
+    profile_data = load_profile(profile_name)
+    if not profile_data:
+        show_error_dialog(
+            win, voc.get("error-loading-profile", "Error loading profile")
+        )
+        return
+
+    # Apply profile settings
+    apply_profile(profile_data)
+    close_dialog(w, win)
+
+
+def on_delete_profile_btn(w, win, combo):
+    """Handles deleting a profile when the delete button is clicked"""
+    profile_name = combo.get_active_id()
+    if not profile_name:
+        return
+
+    confirm_dialog = Gtk.MessageDialog(
+        transient_for=win,
+        flags=0,
+        message_type=Gtk.MessageType.QUESTION,
+        buttons=Gtk.ButtonsType.YES_NO,
+        text=voc.get("confirm-delete", "Delete Profile?"),
+    )
+    confirm_dialog.format_secondary_text(
+        voc.get(
+            "confirm-delete-message", "Are you sure you want to delete profile '{}'?"
+        ).format(profile_name)
+    )
+    response = confirm_dialog.run()
+    confirm_dialog.destroy()
+
+    if response == Gtk.ResponseType.YES:
+        profile_path = os.path.join(get_profiles_dir(), f"{profile_name}.json")
+        try:
+            os.remove(profile_path)
+            # Update combobox
+            combo.remove_all()
+            profiles = list_profiles()
+            for profile in profiles:
+                combo.append(profile, profile)
+            if profiles:
+                combo.set_active(0)
+            else:
+                # No profiles left, close dialog
+                close_dialog(w, win)
+                notify(
+                    voc.get("no-profiles", "No Profiles"),
+                    voc.get("no-profiles-message", "No saved profiles found"),
+                )
+        except Exception as e:
+            show_error_dialog(win, str(e))
+
+
+def apply_profile(profile_data):
+    """Applies the settings from a profile"""
+    global outputs_activity
+    outputs_activity = profile_data.get("outputs_activity", {})
+
+    # Apply display settings directly to current outputs
+    profile_displays = profile_data.get("displays", [])
+    output_map = {out.name: out for out in display_buttons}
+
+    for display_data in profile_displays:
+        name = display_data.get("name")
+        if name in output_map:
+            db = output_map[name]
+            # Update display button with profile settings
+            db.x = display_data.get("x", db.x)
+            db.y = display_data.get("y", db.y)
+            db.physical_width = display_data.get("physical_width", db.physical_width)
+            db.physical_height = display_data.get("physical_height", db.physical_height)
+            db.transform = display_data.get("transform", db.transform)
+            db.scale = display_data.get("scale", db.scale)
+            db.scale_filter = display_data.get("scale_filter", db.scale_filter)
+            db.refresh = display_data.get("refresh", db.refresh)
+            db.dpms = display_data.get("dpms", db.dpms)
+            db.adaptive_sync = display_data.get("adaptive_sync", db.adaptive_sync)
+            db.custom_mode = display_data.get("custom_mode", db.custom_mode)
+            db.mirror = display_data.get("mirror", db.mirror)
+            db.ten_bit = display_data.get("ten_bit", db.ten_bit)
+
+            # Update display position and size on the UI
+            db.rescale_transform()
+            fixed.move(db, db.x * config["view-scale"], db.y * config["view-scale"])
+
+    # If a display is selected, update the form with its settings
+    if selected_output_button:
+        update_form_from_widget(selected_output_button)
+
+    # Notify user
+    notify(
+        voc.get("profile-loaded", "Profile Loaded"),
+        voc.get("profile-loaded-message", "Configuration loaded successfully"),
+    )
+
 
 def load_vocabulary():
     global voc
@@ -150,7 +461,11 @@ def load_vocabulary():
     if lang is None:
         lang = "en_US"
     else:
-        lang = lang.split(".")[0] if not shell_data["interface-locale"] else shell_data["interface-locale"]
+        lang = (
+            lang.split(".")[0]
+            if not shell_data["interface-locale"]
+            else shell_data["interface-locale"]
+        )
 
     # translate if translation available
     if lang != "en_US":
@@ -187,8 +502,12 @@ def on_button_press_event(widget, event):
         # note that we're rounding down now so that these max values don't get
         # rounded upward later and push the widget off the edge of its parent.
         global max_x, max_y
-        max_x = round_down_to_multiple(p.get_allocation().width - widget.get_allocation().width, SENSITIVITY)
-        max_y = round_down_to_multiple(p.get_allocation().height - widget.get_allocation().height, SENSITIVITY)
+        max_x = round_down_to_multiple(
+            p.get_allocation().width - widget.get_allocation().width, SENSITIVITY
+        )
+        max_y = round_down_to_multiple(
+            p.get_allocation().height - widget.get_allocation().height, SENSITIVITY
+        )
 
         update_form_from_widget(widget)
 
@@ -297,7 +616,9 @@ def update_form_from_widget(widget):
     form_dpms.set_active(widget.dpms)
     form_adaptive_sync.set_active(widget.adaptive_sync)
     form_custom_mode.set_active(widget.custom_mode)
-    form_view_scale.set_value(config["view-scale"])  # not really from the widget, but from the global value
+    form_view_scale.set_value(
+        config["view-scale"]
+    )  # not really from the widget, but from the global value
     form_use_desc.set_active(config["use-desc"])
     form_x.set_value(widget.x)
     form_y.set_value(widget.y)
@@ -323,13 +644,21 @@ def update_form_from_widget(widget):
     form_modes.remove_all()
     active = ""
     for mode in widget.modes:
-        m = "{}x{}@{}Hz".format(mode["width"], mode["height"], mode["refresh"] / 1000, mode[
-            "refresh"] / 1000, widget.refresh)
+        m = "{}x{}@{}Hz".format(
+            mode["width"],
+            mode["height"],
+            mode["refresh"] / 1000,
+            mode["refresh"] / 1000,
+            widget.refresh,
+        )
         form_modes.append(m, m)
         # This is just to set active_id
 
-        if mode["width"] == widget.physical_width and mode["height"] == widget.physical_height and mode[
-            "refresh"] / 1000 == widget.refresh:
+        if (
+            mode["width"] == widget.physical_width
+            and mode["height"] == widget.physical_height
+            and mode["refresh"] / 1000 == widget.refresh
+        ):
             active = m
     if active:
         form_modes.set_active_id(active)
@@ -340,9 +669,28 @@ def update_form_from_widget(widget):
 
 
 class DisplayButton(Gtk.Button):
-    def __init__(self, name, description, x, y, physical_width, physical_height, transform, scale, scale_filter,
-                 refresh, modes, active, dpms, adaptive_sync_status, ten_bit, custom_mode_status, focused, monitor,
-                 mirror=""):
+    def __init__(
+        self,
+        name,
+        description,
+        x,
+        y,
+        physical_width,
+        physical_height,
+        transform,
+        scale,
+        scale_filter,
+        refresh,
+        modes,
+        active,
+        dpms,
+        adaptive_sync_status,
+        ten_bit,
+        custom_mode_status,
+        focused,
+        monitor,
+        mirror="",
+    ):
         super().__init__()
         # Output properties
         self.name = name
@@ -362,7 +710,9 @@ class DisplayButton(Gtk.Button):
         # self.modes = modes
         self.active = active
         self.dpms = dpms
-        self.adaptive_sync = adaptive_sync_status == "enabled"  # converts "enabled | disabled" to bool
+        self.adaptive_sync = (
+            adaptive_sync_status == "enabled"
+        )  # converts "enabled | disabled" to bool
         self.custom_mode = custom_mode_status
         self.focused = focused
         self.mirror = mirror
@@ -380,8 +730,13 @@ class DisplayButton(Gtk.Button):
         self.rescale_transform()
         self.set_property("name", "output")
 
-        self.indicator = Indicator(monitor, name, round(self.physical_width * config["view-scale"]),
-                                   round(self.physical_height * config["view-scale"]), config["indicator-timeout"])
+        self.indicator = Indicator(
+            monitor,
+            name,
+            round(self.physical_width * config["view-scale"]),
+            round(self.physical_height * config["view-scale"]),
+            config["indicator-timeout"],
+        )
 
         self.show()
 
@@ -409,8 +764,10 @@ class DisplayButton(Gtk.Button):
         self.set_property("name", "output")
 
     def rescale_transform(self):
-        self.set_size_request(round(self.logical_width * config["view-scale"]),
-                              round(self.logical_height * config["view-scale"]))
+        self.set_size_request(
+            round(self.logical_width * config["view-scale"]),
+            round(self.logical_height * config["view-scale"]),
+        )
 
     def on_active_check_button_toggled(self, w):
         self.active = w.get_active()
@@ -478,15 +835,21 @@ def on_custom_mode_toggle(widget):
 def on_pos_x_changed(widget):
     if selected_output_button:
         selected_output_button.x = round(widget.get_value())
-        fixed.move(selected_output_button, selected_output_button.x * config["view-scale"],
-                   selected_output_button.y * config["view-scale"])
+        fixed.move(
+            selected_output_button,
+            selected_output_button.x * config["view-scale"],
+            selected_output_button.y * config["view-scale"],
+        )
 
 
 def on_pos_y_changed(widget):
     if selected_output_button:
         selected_output_button.y = round(widget.get_value())
-        fixed.move(selected_output_button, selected_output_button.x * config["view-scale"],
-                   selected_output_button.y * config["view-scale"])
+        fixed.move(
+            selected_output_button,
+            selected_output_button.x * config["view-scale"],
+            selected_output_button.y * config["view-scale"],
+        )
 
 
 def on_width_changed(widget):
@@ -537,7 +900,9 @@ def on_mirror_selected(widget):
 
 def on_apply_button(widget):
     global outputs_activity
-    apply_settings(display_buttons, outputs_activity, outputs_path, use_desc=config["use-desc"])
+    apply_settings(
+        display_buttons, outputs_activity, outputs_path, use_desc=config["use-desc"]
+    )
     # save config file
     save_json(config, os.path.join(config_dir, "config"))
 
@@ -570,15 +935,35 @@ def create_display_buttons():
     for key in outputs:
         item = outputs[key]
         custom_mode = key in config["custom-mode"]
-        b = DisplayButton(key, item["description"], item["x"], item["y"], round(item["physical-width"]),
-                          round(item["physical-height"]),
-                          item["transform"], item["scale"], item["scale_filter"], item["refresh"], item["modes"],
-                          item["active"], item["dpms"], item["adaptive_sync_status"], item["ten_bit"], custom_mode,
-                          item["focused"], item["monitor"], mirror=item["mirror"])
+        b = DisplayButton(
+            key,
+            item["description"],
+            item["x"],
+            item["y"],
+            round(item["physical-width"]),
+            round(item["physical-height"]),
+            item["transform"],
+            item["scale"],
+            item["scale_filter"],
+            item["refresh"],
+            item["modes"],
+            item["active"],
+            item["dpms"],
+            item["adaptive_sync_status"],
+            item["ten_bit"],
+            custom_mode,
+            item["focused"],
+            item["monitor"],
+            mirror=item["mirror"],
+        )
 
         display_buttons.append(b)
 
-        fixed.put(b, round(item["x"] * config["view-scale"]), round(item["y"] * config["view-scale"]))
+        fixed.put(
+            b,
+            round(item["x"] * config["view-scale"]),
+            round(item["y"] * config["view-scale"]),
+        )
 
     display_buttons[0].select()
     update_form_from_widget(display_buttons[0])
@@ -624,7 +1009,9 @@ def handle_keyboard(window, event):
 def create_workspaces_window(btn):
     global sway_config_dir
     global workspaces
-    workspaces = load_workspaces(os.path.join(sway_config_dir, "workspaces"), use_desc=config["use-desc"])
+    workspaces = load_workspaces(
+        os.path.join(sway_config_dir, "workspaces"), use_desc=config["use-desc"]
+    )
     old_workspaces = workspaces.copy()
     global dialog_win
     if dialog_win:
@@ -665,7 +1052,9 @@ def create_workspaces_window(btn):
     btn_apply = Gtk.Button()
     btn_apply.set_label(voc["apply"])
     if sway_config_dir:
-        btn_apply.connect("clicked", on_workspaces_apply_btn, dialog_win, old_workspaces)
+        btn_apply.connect(
+            "clicked", on_workspaces_apply_btn, dialog_win, old_workspaces
+        )
     else:
         btn_apply.set_sensitive(False)
         btn_apply.set_tooltip_text("Config dir not found")
@@ -682,7 +1071,8 @@ def create_workspaces_window(btn):
 def create_workspaces_window_hypr(btn):
     global workspaces
     workspaces = load_workspaces_hypr(
-        os.path.join(hypr_config_dir, "workspaces.conf"), num_ws=num_ws)
+        os.path.join(hypr_config_dir, "workspaces.conf"), num_ws=num_ws
+    )
     eprint("WS->Mon:", workspaces)
     old_workspaces = workspaces.copy()
     global dialog_win
@@ -703,7 +1093,9 @@ def create_workspaces_window_hypr(btn):
     for i in range(num_ws):
         lbl = Gtk.Label()
         if config["use-desc"]:
-            lbl.set_markup("Workspace rule: <b>workspace={},monitor:desc:</b>".format(i + 1))
+            lbl.set_markup(
+                "Workspace rule: <b>workspace={},monitor:desc:</b>".format(i + 1)
+            )
         else:
             lbl.set_markup("Workspace rule: <b>workspace={},monitor:</b>".format(i + 1))
         lbl.set_property("halign", Gtk.Align.END)
@@ -729,7 +1121,9 @@ def create_workspaces_window_hypr(btn):
     btn_apply = Gtk.Button()
     btn_apply.set_label(voc["apply"])
     if hypr_config_dir:
-        btn_apply.connect("clicked", on_workspaces_apply_btn_hypr, dialog_win, old_workspaces)
+        btn_apply.connect(
+            "clicked", on_workspaces_apply_btn_hypr, dialog_win, old_workspaces
+        )
     else:
         btn_apply.set_sensitive(False)
         btn_apply.set_tooltip_text("Config dir not found")
@@ -755,7 +1149,11 @@ def close_dialog(w, win):
 def on_workspaces_apply_btn(w, win, old_workspaces):
     global workspaces
     if workspaces != old_workspaces:
-        save_workspaces(workspaces, os.path.join(sway_config_dir, "workspaces"), use_desc=config["use-desc"])
+        save_workspaces(
+            workspaces,
+            os.path.join(sway_config_dir, "workspaces"),
+            use_desc=config["use-desc"],
+        )
         notify("Workspaces assignment", "Restart sway for changes to take effect")
 
     close_dialog(w, win)
@@ -768,9 +1166,12 @@ def on_workspaces_apply_btn_hypr(w, win, old_workspaces):
         text_file = open(workspace_conf_file, "w")
 
         now = datetime.datetime.now()
-        line = "# Generated by nwg-displays on {} at {}. Do not edit manually.\n".format(
-            datetime.datetime.strftime(now, '%Y-%m-%d'),
-            datetime.datetime.strftime(now, '%H:%M:%S'))
+        line = (
+            "# Generated by nwg-displays on {} at {}. Do not edit manually.\n".format(
+                datetime.datetime.strftime(now, "%Y-%m-%d"),
+                datetime.datetime.strftime(now, "%H:%M:%S"),
+            )
+        )
         text_file.write(line + "\n")
 
         monitors_with_default_workspace = []
@@ -795,9 +1196,12 @@ def on_workspaces_apply_btn_hypr(w, win, old_workspaces):
 
 def apply_settings(display_buttons, outputs_activity, outputs_path, use_desc=False):
     now = datetime.datetime.now()
-    lines = ["# Generated by nwg-displays on {} at {}. Do not edit manually.\n".format(
-        datetime.datetime.strftime(now, '%Y-%m-%d'),
-        datetime.datetime.strftime(now, '%H:%M:%S'))]
+    lines = [
+        "# Generated by nwg-displays on {} at {}. Do not edit manually.\n".format(
+            datetime.datetime.strftime(now, "%Y-%m-%d"),
+            datetime.datetime.strftime(now, "%H:%M:%S"),
+        )
+    ]
     cmds = []
     db_names = []
     # just active outputs have their buttons
@@ -811,8 +1215,13 @@ def apply_settings(display_buttons, outputs_activity, outputs_path, use_desc=Fal
 
             custom_mode_str = "--custom" if db.custom_mode else ""
             lines.append(
-                "    mode {} {}x{}@{}Hz".format(custom_mode_str, db.physical_width, db.physical_height, db.refresh))
-            cmd += " mode {} {}x{}@{}Hz".format(custom_mode_str, db.physical_width, db.physical_height, db.refresh)
+                "    mode {} {}x{}@{}Hz".format(
+                    custom_mode_str, db.physical_width, db.physical_height, db.refresh
+                )
+            )
+            cmd += " mode {} {}x{}@{}Hz".format(
+                custom_mode_str, db.physical_width, db.physical_height, db.refresh
+            )
 
             lines.append("    pos {} {}".format(db.x, db.y))
             cmd += " pos {} {}".format(db.x, db.y)
@@ -873,13 +1282,33 @@ def apply_settings(display_buttons, outputs_activity, outputs_path, use_desc=Fal
         create_confirm_win(backup, outputs_path)
 
     elif os.getenv("HYPRLAND_INSTANCE_SIGNATURE"):
-        transforms = {"normal": 0, "90": 1, "180": 2, "270": 3, "flipped": 4, "flipped-90": 5, "flipped-180": 6,
-                      "flipped-270": 7}
+        transforms = {
+            "normal": 0,
+            "90": 1,
+            "180": 2,
+            "270": 3,
+            "flipped": 4,
+            "flipped-90": 5,
+            "flipped-180": 6,
+            "flipped-270": 7,
+        }
         for db in display_buttons:
-            name = db.name if not use_desc else "desc:{}".format(db.description.replace("#", "##"))
+            name = (
+                db.name
+                if not use_desc
+                else "desc:{}".format(db.description.replace("#", "##"))
+            )
             db_names.append(name)
 
-            line = "monitor={},{}x{}@{},{}x{},{}".format(name, db.physical_width, db.physical_height, db.refresh, db.x, db.y, db.scale)
+            line = "monitor={},{}x{}@{},{}x{},{}".format(
+                name,
+                db.physical_width,
+                db.physical_height,
+                db.refresh,
+                db.x,
+                db.y,
+                db.scale,
+            )
             if db.mirror:
                 line += ",mirror,{}".format(db.mirror)
             if db.ten_bit:
@@ -887,7 +1316,9 @@ def apply_settings(display_buttons, outputs_activity, outputs_path, use_desc=Fal
 
             lines.append(line)
             if db.transform != "normal":
-                lines.append("monitor={},transform,{}".format(name, transforms[db.transform]))
+                lines.append(
+                    "monitor={},transform,{}".format(name, transforms[db.transform])
+                )
 
             # avoid looking up the hardware name
             if db.name in outputs_activity and not outputs_activity[db.name]:
@@ -905,6 +1336,7 @@ def apply_settings(display_buttons, outputs_activity, outputs_path, use_desc=Fal
             backup = load_text_file(outputs_path).splitlines()
         save_list_to_text_file(lines, outputs_path)
         create_confirm_win(backup, outputs_path)
+
 
 def create_confirm_win(backup, path):
     global confirm_win
@@ -981,7 +1413,7 @@ def restore_old_settings(btn, backup, path):
         # remove "{"
         single_line = single_line.replace("{", "")
         # convert multiple spaces into single
-        single_line = ' '.join(single_line.split())
+        single_line = " ".join(single_line.split())
         cmds = single_line.split("}")
         # execute line by line
         i3 = Connection()
@@ -1001,43 +1433,55 @@ def restore_old_settings(btn, backup, path):
 
 
 def main():
-    GLib.set_prgname('nwg-displays')
+    GLib.set_prgname("nwg-displays")
 
     parser = argparse.ArgumentParser()
 
     if sway:
-        parser.add_argument("-o",
-                            "--outputs_path",
-                            type=str,
-                            default="{}/outputs".format(sway_config_dir),
-                            help="path to save Outputs config to, default: {}".format(
-                                "{}/outputs".format(sway_config_dir)))
+        parser.add_argument(
+            "-o",
+            "--outputs_path",
+            type=str,
+            default="{}/outputs".format(sway_config_dir),
+            help="path to save Outputs config to, default: {}".format(
+                "{}/outputs".format(sway_config_dir)
+            ),
+        )
 
-        parser.add_argument("-n",
-                            "--num_ws",
-                            type=int,
-                            default=8,
-                            help="number of Workspaces in use, default: 8")
+        parser.add_argument(
+            "-n",
+            "--num_ws",
+            type=int,
+            default=8,
+            help="number of Workspaces in use, default: 8",
+        )
 
     elif hypr:
-        parser.add_argument("-m",
-                            "--monitors_path",
-                            type=str,
-                            default="{}/monitors.conf".format(hypr_config_dir),
-                            help="path to save the monitors.conf file to, default: {}".format(
-                                "{}/monitors.conf".format(hypr_config_dir)))
+        parser.add_argument(
+            "-m",
+            "--monitors_path",
+            type=str,
+            default="{}/monitors.conf".format(hypr_config_dir),
+            help="path to save the monitors.conf file to, default: {}".format(
+                "{}/monitors.conf".format(hypr_config_dir)
+            ),
+        )
 
-        parser.add_argument("-n",
-                            "--num_ws",
-                            type=int,
-                            default=10,
-                            help="number of Workspaces in use, default: 10")
+        parser.add_argument(
+            "-n",
+            "--num_ws",
+            type=int,
+            default=10,
+            help="number of Workspaces in use, default: 10",
+        )
 
-    parser.add_argument("-v",
-                        "--version",
-                        action="version",
-                        version="%(prog)s version {}".format(__version__),
-                        help="display version information")
+    parser.add_argument(
+        "-v",
+        "--version",
+        action="version",
+        version="%(prog)s version {}".format(__version__),
+        help="display version information",
+    )
     args = parser.parse_args()
 
     load_vocabulary()
@@ -1091,16 +1535,21 @@ def main():
     screen = Gdk.Screen.get_default()
     provider = Gtk.CssProvider()
     style_context = Gtk.StyleContext()
-    style_context.add_provider_for_screen(screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+    style_context.add_provider_for_screen(
+        screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+    )
     try:
         file = os.path.join(dir_name, "resources/style.css")
         provider.load_from_path(file)
     except:
-        sys.stderr.write("ERROR: {} file not found, using GTK styling\n".format(os.path.join(dir_name,
-                                                                                             "resources/style.css")))
+        sys.stderr.write(
+            "ERROR: {} file not found, using GTK styling\n".format(
+                os.path.join(dir_name, "resources/style.css")
+            )
+        )
 
     window.connect("key-release-event", handle_keyboard)
-    window.connect('destroy', Gtk.main_quit)
+    window.connect("destroy", Gtk.main_quit)
 
     builder.get_object("lbl-modes").set_label("{}:".format(voc["modes"]))
     builder.get_object("lbl-position-x").set_label("{}:".format(voc["position-x"]))
@@ -1148,37 +1597,49 @@ def main():
     global form_view_scale
     form_view_scale = builder.get_object("view-scale")
     form_view_scale.set_tooltip_text(voc["view-scale-tooltip"])
-    adj = Gtk.Adjustment(lower=0.1, upper=0.6, step_increment=0.05, page_increment=0.1, page_size=0.1)
+    adj = Gtk.Adjustment(
+        lower=0.1, upper=0.6, step_increment=0.05, page_increment=0.1, page_size=0.1
+    )
     form_view_scale.configure(adj, 1, 2)
     form_view_scale.connect("changed", on_view_scale_changed)
 
     global form_x
     form_x = builder.get_object("x")
-    adj = Gtk.Adjustment(lower=0, upper=60000, step_increment=1, page_increment=10, page_size=1)
+    adj = Gtk.Adjustment(
+        lower=0, upper=60000, step_increment=1, page_increment=10, page_size=1
+    )
     form_x.configure(adj, 1, 0)
     form_x.connect("value-changed", on_pos_x_changed)
 
     global form_y
     form_y = builder.get_object("y")
-    adj = Gtk.Adjustment(lower=0, upper=40000, step_increment=1, page_increment=10, page_size=1)
+    adj = Gtk.Adjustment(
+        lower=0, upper=40000, step_increment=1, page_increment=10, page_size=1
+    )
     form_y.configure(adj, 1, 0)
     form_y.connect("value-changed", on_pos_y_changed)
 
     global form_width
     form_width = builder.get_object("width")
-    adj = Gtk.Adjustment(lower=0, upper=7680, step_increment=1, page_increment=10, page_size=1)
+    adj = Gtk.Adjustment(
+        lower=0, upper=7680, step_increment=1, page_increment=10, page_size=1
+    )
     form_width.configure(adj, 1, 0)
     form_width.connect("value-changed", on_width_changed)
 
     global form_height
     form_height = builder.get_object("height")
-    adj = Gtk.Adjustment(lower=0, upper=4320, step_increment=1, page_increment=10, page_size=1)
+    adj = Gtk.Adjustment(
+        lower=0, upper=4320, step_increment=1, page_increment=10, page_size=1
+    )
     form_height.configure(adj, 1, 0)
     form_height.connect("value-changed", on_height_changed)
 
     global form_scale
     form_scale = builder.get_object("scale")
-    adj = Gtk.Adjustment(lower=0.1, upper=10, step_increment=0.1, page_increment=10, page_size=1)
+    adj = Gtk.Adjustment(
+        lower=0.1, upper=10, step_increment=0.1, page_increment=10, page_size=1
+    )
     form_scale.configure(adj, 0.1, 6)
     form_scale.connect("value-changed", on_scale_changed)
 
@@ -1192,7 +1653,9 @@ def main():
 
     global form_refresh
     form_refresh = builder.get_object("refresh")
-    adj = Gtk.Adjustment(lower=1, upper=1200, step_increment=1, page_increment=10, page_size=1)
+    adj = Gtk.Adjustment(
+        lower=1, upper=1200, step_increment=1, page_increment=10, page_size=1
+    )
     form_refresh.configure(adj, 1, 3)
     form_refresh.connect("changed", on_refresh_changed)
 
@@ -1289,6 +1752,32 @@ def main():
         form_mirror.connect("changed", on_mirror_selected)
         grid.attach(form_mirror, 7, 4, 1, 1)
 
+    # Add profile management buttons
+    profiles_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+    form_wrapper_box.pack_start(profiles_box, False, False, 10)
+
+    profile_label = Gtk.Label()
+    profile_label.set_text(voc.get("profiles", "Profiles:"))
+    profiles_box.pack_start(profile_label, False, False, 3)
+
+    btn_save_profile = Gtk.Button.new_with_label(
+        voc.get("save-profile", "Save Profile")
+    )
+    btn_save_profile.set_tooltip_text(
+        voc.get("save-profile-tooltip", "Save current configuration as a profile")
+    )
+    btn_save_profile.connect("clicked", create_save_profile_dialog)
+    profiles_box.pack_start(btn_save_profile, False, False, 3)
+
+    btn_load_profile = Gtk.Button.new_with_label(
+        voc.get("load-profile", "Load Profile")
+    )
+    btn_load_profile.set_tooltip_text(
+        voc.get("load-profile-tooltip", "Load a saved profile")
+    )
+    btn_load_profile.connect("clicked", create_load_profile_dialog)
+    profiles_box.pack_start(btn_load_profile, False, False, 3)
+
     if display_buttons:
         update_form_from_widget(display_buttons[0])
         display_buttons[0].select()
@@ -1296,7 +1785,9 @@ def main():
     screen = Gdk.Screen.get_default()
     provider = Gtk.CssProvider()
     style_context = Gtk.StyleContext()
-    style_context.add_provider_for_screen(screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+    style_context.add_provider_for_screen(
+        screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+    )
     css = b""" #popup { border-radius: 6px; border: solid 1px; border-color: #f00 } """
     provider.load_from_data(css)
 
@@ -1309,5 +1800,5 @@ def main():
     Gtk.main()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

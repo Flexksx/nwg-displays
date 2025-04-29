@@ -8,7 +8,7 @@ import sys
 
 import gi
 
-gi.require_version('Gdk', '3.0')
+gi.require_version("Gdk", "3.0")
 from gi.repository import Gdk
 
 if os.getenv("SWAYSOCK"):
@@ -20,9 +20,12 @@ def eprint(*args, **kwargs):
 
 
 def get_config_home():
-    xdg_config_home = os.getenv('XDG_CONFIG_HOME')
-    config_home = xdg_config_home if xdg_config_home else os.path.join(
-        os.getenv("HOME"), ".config")
+    xdg_config_home = os.getenv("XDG_CONFIG_HOME")
+    config_home = (
+        xdg_config_home
+        if xdg_config_home
+        else os.path.join(os.getenv("HOME"), ".config")
+    )
 
     return config_home
 
@@ -30,14 +33,17 @@ def get_config_home():
 def hyprctl(cmd):
     # /tmp/hypr moved to $XDG_RUNTIME_DIR/hypr in #5788
     xdg_runtime_dir = os.getenv("XDG_RUNTIME_DIR")
-    hypr_dir = f"{xdg_runtime_dir}/hypr" if xdg_runtime_dir and os.path.isdir(
-        f"{xdg_runtime_dir}/hypr") else "/tmp/hypr"
+    hypr_dir = (
+        f"{xdg_runtime_dir}/hypr"
+        if xdg_runtime_dir and os.path.isdir(f"{xdg_runtime_dir}/hypr")
+        else "/tmp/hypr"
+    )
 
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     s.connect(f"{hypr_dir}/{os.getenv('HYPRLAND_INSTANCE_SIGNATURE')}/.socket.sock")
 
     s.send(cmd.encode("utf-8"))
-    output = s.recv(20480).decode('utf-8')
+    output = s.recv(20480).decode("utf-8")
     s.close()
 
     return output
@@ -47,8 +53,7 @@ def is_command(cmd):
     cmd = cmd.split()[0]
     cmd = "command -v {}".format(cmd)
     try:
-        is_cmd = subprocess.check_output(
-            cmd, shell=True).decode("utf-8").strip()
+        is_cmd = subprocess.check_output(cmd, shell=True).decode("utf-8").strip()
         if is_cmd:
             return True
 
@@ -64,31 +69,46 @@ def list_outputs():
         tree = i3.get_tree()
         for item in tree:
             if item.type == "output" and not item.name.startswith("__"):
-                outputs_dict[item.name] = {"x": item.rect.x,
-                                           "y": item.rect.y,
-                                           "logical-width": item.rect.width,
-                                           "logical-height": item.rect.height,
-                                           "physical-width": item.ipc_data["current_mode"]["width"],
-                                           "physical-height": item.ipc_data["current_mode"]["height"]}
+                outputs_dict[item.name] = {
+                    "x": item.rect.x,
+                    "y": item.rect.y,
+                    "logical-width": item.rect.width,
+                    "logical-height": item.rect.height,
+                    "physical-width": item.ipc_data["current_mode"]["width"],
+                    "physical-height": item.ipc_data["current_mode"]["height"],
+                }
 
                 outputs_dict[item.name]["active"] = item.ipc_data["active"]
                 outputs_dict[item.name]["dpms"] = item.ipc_data["dpms"]
-                outputs_dict[item.name]["transform"] = item.ipc_data[
-                    "transform"] if "transform" in item.ipc_data else None
-                outputs_dict[item.name]["scale"] = float(item.ipc_data["scale"]) if "scale" in item.ipc_data else None
+                outputs_dict[item.name]["transform"] = (
+                    item.ipc_data["transform"] if "transform" in item.ipc_data else None
+                )
+                outputs_dict[item.name]["scale"] = (
+                    float(item.ipc_data["scale"]) if "scale" in item.ipc_data else None
+                )
                 outputs_dict[item.name]["scale_filter"] = item.ipc_data["scale_filter"]
-                outputs_dict[item.name]["adaptive_sync_status"] = item.ipc_data["adaptive_sync_status"]
-                outputs_dict[item.name]["refresh"] = \
-                    item.ipc_data["current_mode"]["refresh"] / 1000 if "refresh" in item.ipc_data[
-                        "current_mode"] else None
-                outputs_dict[item.name]["modes"] = item.ipc_data["modes"] if "modes" in item.ipc_data else []
-                outputs_dict[item.name]["description"] = "{} {} {}".format(item.ipc_data["make"],
-                                                                           item.ipc_data["model"],
-                                                                           item.ipc_data["serial"])
+                outputs_dict[item.name]["adaptive_sync_status"] = item.ipc_data[
+                    "adaptive_sync_status"
+                ]
+                outputs_dict[item.name]["refresh"] = (
+                    item.ipc_data["current_mode"]["refresh"] / 1000
+                    if "refresh" in item.ipc_data["current_mode"]
+                    else None
+                )
+                outputs_dict[item.name]["modes"] = (
+                    item.ipc_data["modes"] if "modes" in item.ipc_data else []
+                )
+                outputs_dict[item.name]["description"] = "{} {} {}".format(
+                    item.ipc_data["make"],
+                    item.ipc_data["model"],
+                    item.ipc_data["serial"],
+                )
                 outputs_dict[item.name]["focused"] = item.ipc_data["focused"]
 
                 outputs_dict[item.name]["mirror"] = ""  # We only use it on Hyprland
-                outputs_dict[item.name]["ten_bit"] = False  # We have no way to check it on sway
+                outputs_dict[item.name][
+                    "ten_bit"
+                ] = False  # We have no way to check it on sway
                 outputs_dict[item.name]["monitor"] = None
 
     elif os.getenv("HYPRLAND_INSTANCE_SIGNATURE"):
@@ -100,7 +120,9 @@ def list_outputs():
         outputs_dict = {}
         for mon in monitors_all:
             name = mon["name"]
-            outputs_dict[name] = {"active": True} if name in active else {"active": False}
+            outputs_dict[name] = (
+                {"active": True} if name in active else {"active": False}
+            )
 
         eprint("Running on Hyprland")
 
@@ -119,15 +141,25 @@ def list_outputs():
         # 2. This won't work w/ Hyprland <= 0.36.0
         output = hyprctl("j/monitors all")
         monitors = json.loads(output)
-        transforms = {0: "normal", 1: "90", 2: "180", 3: "270", 4: "flipped", 5: "flipped-90", 6: "flipped-180",
-                      7: "flipped-270"}
+        transforms = {
+            0: "normal",
+            1: "90",
+            2: "180",
+            3: "270",
+            4: "flipped",
+            5: "flipped-90",
+            6: "flipped-180",
+            7: "flipped-270",
+        }
         for m in monitors:
             outputs_dict[m["name"]]["mirror"] = mirrors[name] if name in mirrors else ""
 
             outputs_dict[m["name"]]["scale_filter"] = None
             outputs_dict[m["name"]]["modes"] = []
             outputs_dict[m["name"]]["focused"] = m["focused"]
-            outputs_dict[m["name"]]["adaptive_sync_status"] = "enabled" if m["vrr"] else "disabled"
+            outputs_dict[m["name"]]["adaptive_sync_status"] = (
+                "enabled" if m["vrr"] else "disabled"
+            )
 
             outputs_dict[m["name"]]["description"] = f'{m["description"]}'
             outputs_dict[m["name"]]["x"] = int(m["x"])
@@ -153,12 +185,18 @@ def list_outputs():
                 w_h, r = line.split("@")
                 w, h = w_h.split("x")
                 try:
-                    mode = {"width": int(w), "height": int(h), "refresh": float(r) * 1000}
+                    mode = {
+                        "width": int(w),
+                        "height": int(h),
+                        "refresh": float(r) * 1000,
+                    }
                 except ValueError as e:
                     eprint(e)
                 outputs_dict[m["name"]]["modes"].append(mode)
 
-            outputs_dict[m["name"]]["ten_bit"] = True if m["currentFormat"] in ["XRGB2101010", "XBGR2101010"] else False
+            outputs_dict[m["name"]]["ten_bit"] = (
+                True if m["currentFormat"] in ["XRGB2101010", "XBGR2101010"] else False
+            )
 
             # to identify Gdk.Monitor
             outputs_dict[m["name"]]["model"] = m["model"]
@@ -166,7 +204,9 @@ def list_outputs():
             outputs_dict[m["name"]]["monitor"] = None
 
     else:
-        eprint("This program only supports sway and Hyprland, and we seem to be elsewhere, terminating.")
+        eprint(
+            "This program only supports sway and Hyprland, and we seem to be elsewhere, terminating."
+        )
         sys.exit(1)
 
     # We used to assign Gdk.Monitor to output on the basis of x and y coordinates, but it no longer works,
@@ -261,7 +301,8 @@ def round_to_nearest_multiple(i, m):
 
 def orientation_changed(transform, transform_old):
     return (is_rotated(transform) and not is_rotated(transform_old)) or (
-            is_rotated(transform_old) and not is_rotated(transform))
+        is_rotated(transform_old) and not is_rotated(transform)
+    )
 
 
 def is_rotated(transform):
@@ -273,19 +314,24 @@ def inactive_output_description(name):
         i3 = Connection()
         for item in i3.get_outputs():
             if item.name == name:
-                return "{} {} {}".format(item.ipc_data["make"], item.ipc_data["model"],
-                                         item.ipc_data["serial"])
+                return "{} {} {}".format(
+                    item.ipc_data["make"],
+                    item.ipc_data["model"],
+                    item.ipc_data["serial"],
+                )
     return None
 
 
 def config_keys_missing(config, config_file):
     key_missing = False
-    defaults = {"view-scale": 0.15,
-                "snap-threshold": 10,
-                "indicator-timeout": 500,
-                "custom-mode": [],
-                "use-desc": False,
-                "confirm-timeout": 10, }
+    defaults = {
+        "view-scale": 0.15,
+        "snap-threshold": 10,
+        "indicator-timeout": 500,
+        "custom-mode": [],
+        "use-desc": False,
+        "confirm-timeout": 10,
+    }
     for key in defaults:
         if key not in config:
             config[key] = defaults[key]
@@ -300,7 +346,7 @@ def config_keys_missing(config, config_file):
 
 def load_json(path):
     try:
-        with open(path, 'r') as f:
+        with open(path, "r") as f:
             return json.load(f)
     except Exception as e:
         print("Error loading json: {}".format(e))
@@ -308,7 +354,7 @@ def load_json(path):
 
 
 def save_json(src_dict, path):
-    with open(path, 'w') as f:
+    with open(path, "w") as f:
         json.dump(src_dict, f, indent=2)
 
 
@@ -327,7 +373,7 @@ def create_empty_file(file_path):
 
 def load_text_file(path):
     try:
-        with open(path, 'r') as file:
+        with open(path, "r") as file:
             data = file.read()
             return data
     except Exception as e:
@@ -338,7 +384,7 @@ def load_text_file(path):
 def load_workspaces(path, use_desc=False):
     result = {}
     try:
-        with open(path, 'r') as file:
+        with open(path, "r") as file:
             data = file.read().splitlines()
             for i in range(len(data)):
                 if data[i] and not data[i].startswith("#"):  # skip comments
@@ -359,7 +405,7 @@ def load_workspaces_hypr(path, num_ws=0):
     ws_binds = {}
     meaningful_lines_read = 0
     try:
-        with open(path, 'r') as file:
+        with open(path, "r") as file:
             data = file.read().splitlines()
             r = len(data)
             for i in range(r):
@@ -394,8 +440,9 @@ def save_workspaces(data_dict, path, use_desc=False):
     text_file = open(path, "w")
     now = datetime.datetime.now()
     line = "# Generated by nwg-displays on {} at {}. Do not edit manually.\n".format(
-        datetime.datetime.strftime(now, '%Y-%m-%d'),
-        datetime.datetime.strftime(now, '%H:%M:%S'))
+        datetime.datetime.strftime(now, "%Y-%m-%d"),
+        datetime.datetime.strftime(now, "%H:%M:%S"),
+    )
     text_file.write(line + "\n")
     for key in data_dict:
         if not use_desc:
@@ -407,7 +454,9 @@ def save_workspaces(data_dict, path, use_desc=False):
 
 
 def notify(summary, body, timeout=3000):
-    cmd = "notify-send '{}' '{}' -i /usr/share/pixmaps/nwg-displays.svg -t {}".format(summary, body, timeout)
+    cmd = "notify-send '{}' '{}' -i /usr/share/pixmaps/nwg-displays.svg -t {}".format(
+        summary, body, timeout
+    )
     subprocess.call(cmd, shell=True)
 
 
@@ -429,12 +478,75 @@ def load_shell_data():
     shell_data_file = os.path.join(get_shell_data_dir(), "data")
     shell_data = load_json(shell_data_file) if os.path.isfile(shell_data_file) else {}
 
-    defaults = {
-        "interface-locale": ""
-    }
+    defaults = {"interface-locale": ""}
 
     for key in defaults:
         if key not in shell_data:
             shell_data[key] = defaults[key]
 
     return shell_data
+
+
+def get_profiles_dir():
+    """Returns the path to profiles directory, creating it if needed"""
+    config_dir = os.path.join(get_config_home(), "nwg-displays")
+    profiles_dir = os.path.join(config_dir, "profiles")
+    os.makedirs(profiles_dir, exist_ok=True)
+    return profiles_dir
+
+
+def list_profiles():
+    """Returns a list of available profile names"""
+    profiles_dir = get_profiles_dir()
+    profiles = []
+    for filename in os.listdir(profiles_dir):
+        if filename.endswith(".json"):
+            profiles.append(filename[:-5])  # Remove .json extension
+    return profiles
+
+
+def save_profile(profile_name, display_buttons, outputs_activity, use_desc=False):
+    """Saves current configuration as a profile"""
+    if not profile_name:
+        return False
+
+    profile_data = {
+        "timestamp": datetime.datetime.now().isoformat(),
+        "displays": [],
+        "outputs_activity": outputs_activity,
+        "use_desc": use_desc,
+    }
+
+    # Save data from each display button
+    for db in display_buttons:
+        display_data = {
+            "name": db.name,
+            "description": db.description,
+            "x": db.x,
+            "y": db.y,
+            "physical_width": db.physical_width,
+            "physical_height": db.physical_height,
+            "transform": db.transform,
+            "scale": db.scale,
+            "scale_filter": db.scale_filter,
+            "refresh": db.refresh,
+            "dpms": db.dpms,
+            "adaptive_sync": db.adaptive_sync,
+            "custom_mode": db.custom_mode,
+            "mirror": db.mirror,
+            "ten_bit": db.ten_bit,
+        }
+        profile_data["displays"].append(display_data)
+
+    # Save profile to file
+    profile_path = os.path.join(get_profiles_dir(), f"{profile_name}.json")
+    return save_json(profile_data, profile_path)
+
+
+def load_profile(profile_name):
+    """Loads a saved profile configuration"""
+    if not profile_name:
+        return None
+
+    profile_path = os.path.join(get_profiles_dir(), f"{profile_name}.json")
+    return load_json(profile_path)
