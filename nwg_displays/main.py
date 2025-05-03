@@ -526,8 +526,8 @@ def on_motion_notify_event(widget, event):
     # make sure the potential coordinates x,y:
     #   1) will not push any part of the widget outside of its parent container
     #   2) is a multiple of SENSITIVITY
-    x = round_to_nearest_multiple(max_val(min_val(x, max_x), 0), SENSITIVITY)
-    y = round_to_nearest_multiple(max_val(min_val(y, max_y), 0), SENSITIVITY)
+    x = round_to_nearest_multiple(max(min(x, max_x), 0), SENSITIVITY)
+    y = round_to_nearest_multiple(max(min(y, max_y), 0), SENSITIVITY)
 
     if x != px or y != py:
         px = x
