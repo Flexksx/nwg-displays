@@ -7,6 +7,12 @@ import subprocess
 import sys
 
 import gi
+from nwg_displays.hyprland.hyprctl import hyprctl
+from nwg_displays.monitor.hyprland.hyprland_monitor_service import (
+    HyprlandMonitorService,
+)
+from nwg_displays.monitor.monitor import Monitor
+from nwg_displays.monitor.sway.sway_monitor_service import SwayMonitorService
 
 gi.require_version("Gdk", "3.0")
 from gi.repository import Gdk
@@ -30,25 +36,6 @@ def get_config_home():
     return config_home
 
 
-def hyprctl(cmd):
-    # /tmp/hypr moved to $XDG_RUNTIME_DIR/hypr in #5788
-    xdg_runtime_dir = os.getenv("XDG_RUNTIME_DIR")
-    hypr_dir = (
-        f"{xdg_runtime_dir}/hypr"
-        if xdg_runtime_dir and os.path.isdir(f"{xdg_runtime_dir}/hypr")
-        else "/tmp/hypr"
-    )
-
-    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    s.connect(f"{hypr_dir}/{os.getenv('HYPRLAND_INSTANCE_SIGNATURE')}/.socket.sock")
-
-    s.send(cmd.encode("utf-8"))
-    output = s.recv(20480).decode("utf-8")
-    s.close()
-
-    return output
-
-
 def is_command(cmd):
     cmd = cmd.split()[0]
     cmd = "command -v {}".format(cmd)
@@ -61,85 +48,49 @@ def is_command(cmd):
         return False
 
 
-def list_outputs():
+def list_outputs() -> dict[str, Monitor]:
+    """
+    Return a dictionary keyed by monitor name whose values are **Monitor**
+    objects (either SwayMonitor or HyprlandMonitor).  All downstream code
+    continues to work because every monitor implements the same interface.
+    """
+    # 1. Pick the backend -------------------------------------------------
     if os.getenv("SWAYSOCK"):
-        outputs_dict = {}
+        service = SwayMonitorService()
         eprint("Running on sway")
-        i3 = Connection()
-        tree = i3.get_tree()
-        for item in tree:
-            if item.type == "output" and not item.name.startswith("__"):
-                outputs_dict[item.name] = {
-                    "x": item.rect.x,
-                    "y": item.rect.y,
-                    "logical-width": item.rect.width,
-                    "logical-height": item.rect.height,
-                    "physical-width": item.ipc_data["current_mode"]["width"],
-                    "physical-height": item.ipc_data["current_mode"]["height"],
-                }
-
-                outputs_dict[item.name]["active"] = item.ipc_data["active"]
-                outputs_dict[item.name]["dpms"] = item.ipc_data["dpms"]
-                outputs_dict[item.name]["transform"] = (
-                    item.ipc_data["transform"] if "transform" in item.ipc_data else None
-                )
-                outputs_dict[item.name]["scale"] = (
-                    float(item.ipc_data["scale"]) if "scale" in item.ipc_data else None
-                )
-                outputs_dict[item.name]["scale_filter"] = item.ipc_data["scale_filter"]
-                outputs_dict[item.name]["adaptive_sync_status"] = item.ipc_data[
-                    "adaptive_sync_status"
-                ]
-                outputs_dict[item.name]["refresh"] = (
-                    item.ipc_data["current_mode"]["refresh"] / 1000
-                    if "refresh" in item.ipc_data["current_mode"]
-                    else None
-                )
-                outputs_dict[item.name]["modes"] = (
-                    item.ipc_data["modes"] if "modes" in item.ipc_data else []
-                )
-                outputs_dict[item.name]["description"] = "{} {} {}".format(
-                    item.ipc_data["make"],
-                    item.ipc_data["model"],
-                    item.ipc_data["serial"],
-                )
-                outputs_dict[item.name]["focused"] = item.ipc_data["focused"]
-
-                outputs_dict[item.name]["mirror"] = ""  # We only use it on Hyprland
-                outputs_dict[item.name][
-                    "ten_bit"
-                ] = False  # We have no way to check it on sway
-                outputs_dict[item.name]["monitor"] = None
-
     elif os.getenv("HYPRLAND_INSTANCE_SIGNATURE"):
-        outputs_dict = list_hyprland_monitors()
-
+        service = HyprlandMonitorService()
+        eprint("Running on Hyprland")
     else:
         eprint(
-            "This program only supports sway and Hyprland, and we seem to be elsewhere, terminating."
+            "This program only supports sway and Hyprland, "
+            "and we seem to be elsewhere, terminating."
         )
         sys.exit(1)
 
-    # We used to assign Gdk.Monitor to output on the basis of x and y coordinates, but it no longer works,
-    # starting from gtk3-1:3.24.42: all monitors have x=0, y=0. This is most likely a bug, but from now on
-    # we must rely on gdk monitors order.
-    monitors = []
-    display = Gdk.Display.get_default()
-    for i in range(display.get_n_monitors()):
-        monitor = display.get_monitor(i)
-        monitors.append(monitor)
+    # 2. Ask the service for Monitor objects -----------------------------
+    monitors: list[Monitor] = service.list()
 
-    idx = 0
-    for key in outputs_dict:
+    # 3. Tie each monitor to a Gdk.Monitor (by index order; GTK bug forces this)
+    gdk_display = Gdk.Display.get_default()
+    gdk_monitors = [
+        gdk_display.get_monitor(i) for i in range(gdk_display.get_n_monitors())
+    ]
+
+    for idx, mon in enumerate(monitors):
         try:
-            outputs_dict[key]["monitor"] = monitors[idx]
+            # The concrete Monitor classes expose .config.monitor for convenience;
+            # we attach the Gdk.Monitor there so UI code can query DPI, geometry…
+            mon.config.monitor = gdk_monitors[idx]
         except IndexError:
-            print(f"Couldn't assign a Gdk.Monitor to {outputs_dict[key]}")
-        idx += 1
+            eprint(f"Couldn't assign a Gdk.Monitor object to {mon.get_name()}")
 
-    for key in outputs_dict:
-        eprint(key, outputs_dict[key])
-    return outputs_dict
+    # 4. Debug print (was eprint(key, outputs_dict[key]) previously) ------
+    for mon in monitors:
+        eprint(mon)  # relies on __repr__ implemented in both backends
+
+    # 5. Return a {name: Monitor} mapping (API-compatible with old callers)
+    return {mon.get_name(): mon for mon in monitors}
 
 
 def list_hyprland_monitors():
@@ -488,68 +439,3 @@ def load_shell_data():
             shell_data[key] = defaults[key]
 
     return shell_data
-
-
-def get_profiles_dir():
-    """Returns the path to profiles directory, creating it if needed"""
-    config_dir = os.path.join(get_config_home(), "nwg-displays")
-    profiles_dir = os.path.join(config_dir, "profiles")
-    os.makedirs(profiles_dir, exist_ok=True)
-    return profiles_dir
-
-
-def list_profiles():
-    """Returns a list of available profile names"""
-    profiles_dir = get_profiles_dir()
-    profiles = []
-    for filename in os.listdir(profiles_dir):
-        if filename.endswith(".json"):
-            profiles.append(filename[:-5])  # Remove .json extension
-    return profiles
-
-
-def save_profile(profile_name, display_buttons, outputs_activity, use_desc=False):
-    """Saves current configuration as a profile"""
-    if not profile_name:
-        return False
-
-    profile_data = {
-        "timestamp": datetime.datetime.now().isoformat(),
-        "displays": [],
-        "outputs_activity": outputs_activity,
-        "use_desc": use_desc,
-    }
-
-    # Save data from each display button
-    for db in display_buttons:
-        display_data = {
-            "name": db.name,
-            "description": db.description,
-            "x": db.x,
-            "y": db.y,
-            "physical_width": db.physical_width,
-            "physical_height": db.physical_height,
-            "transform": db.transform,
-            "scale": db.scale,
-            "scale_filter": db.scale_filter,
-            "refresh": db.refresh,
-            "dpms": db.dpms,
-            "adaptive_sync": db.adaptive_sync,
-            "custom_mode": db.custom_mode,
-            "mirror": db.mirror,
-            "ten_bit": db.ten_bit,
-        }
-        profile_data["displays"].append(display_data)
-
-    # Save profile to file
-    profile_path = os.path.join(get_profiles_dir(), f"{profile_name}.json")
-    return save_json(profile_data, profile_path)
-
-
-def load_profile(profile_name):
-    """Loads a saved profile configuration"""
-    if not profile_name:
-        return None
-
-    profile_path = os.path.join(get_profiles_dir(), f"{profile_name}.json")
-    return load_json(profile_path)

@@ -20,3 +20,12 @@ class SwayMonitorMode(MonitorMode):
 
     def to_str(self) -> str:
         return f"{self.width}x{self.height}@{self.refresh}"
+
+    def get_width(self):
+        return self.width
+
+    def get_height(self):
+        return self.height
+
+    def get_refresh_rate(self):
+        return self.refresh

@@ -95,11 +95,11 @@ class HyprlandMonitor(Monitor):
     def get_is_dpms_enabled(self):
         return self.config.is_dpms_enabled
 
-    def get_is_ten_bit_enabled(self):
-        raise self.config.is_ten_bit_enabled
+    def get_is_ten_bit_enabled(self) -> bool:
+        return self.config.is_ten_bit_enabled
 
     def get_backend(self) -> MonitorBackend:
-        raise self.config.backend
+        return self.config.backend
 
     def to_config_string(self):
         position = f"{self.get_x()},{self.get_y()}"
@@ -122,3 +122,6 @@ class HyprlandMonitor(Monitor):
 
     def get_serial(self):
         return self.config.serial
+
+    def get_modes(self):
+        return self.available_modes

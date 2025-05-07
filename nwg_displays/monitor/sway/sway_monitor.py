@@ -1,39 +1,38 @@
 from nwg_displays.monitor.backend import MonitorBackend
 from nwg_displays.monitor.monitor import Monitor
 from nwg_displays.monitor.monitor_base_configuration import MonitorBaseConfiguration
+from nwg_displays.monitor.monitor_mode import MonitorMode
 
 
 class SwayMonitor(Monitor):
     def __init__(self, config: MonitorBaseConfiguration, raw_data: dict = None):
+        super().__init__()
         self.config = config
         self.raw_data = raw_data or {}
-
-        self.transform = self.raw_data.get("transform", 0)
-        self.ten_bit = False  # Sway doesn't expose 10-bit format detection
-        super().__init__()
-
-    def __repr__(self):
-        return f"(SwayMonitor {self.get_name()} mode {self.get_physical_width()}x{self.get_physical_height()}@{self.get_refresh_rate()}, scale {self.get_scale()})"
 
     @classmethod
     def from_sway_response(cls, data: dict) -> "SwayMonitor":
         config = MonitorBaseConfiguration(
             name=data["name"],
-            make=data["make"],
-            model=data["model"],
-            serial=data["serial"],
-            is_active=data.get("active", True),
+            make=data.get("make", ""),
+            model=data.get("model", ""),
+            serial=data.get("serial", ""),
+            is_active=data.get("active", False),
             scale=data.get("scale", 1.0),
             x=data.get("x", 0),
             y=data.get("y", 0),
             physical_width=data["physical-width"],
             physical_height=data["physical-height"],
-            refresh_rate=data.get("refresh", 0.0),
+            refresh_rate=round(data["refresh"], 2),
             transform=data.get("transform", 0),
             is_dpms_enabled=data.get("dpms", True),
-            is_adaptive_sync_enabled=data.get("adaptive_sync_status", "") == "enabled",
-            is_ten_bit_enabled=False,  # Can't determine on sway
+            is_adaptive_sync_enabled=(
+                data.get("adaptive_sync_status", "") == "enabled"
+            ),
+            is_ten_bit_enabled=False,  # Sway doesn’t expose ten-bit
             backend="sway",
+            is_mirror_of=None,  # Sway doesn’t expose mirror info
+            is_mirror=False,
         )
         return cls(config, data)
 
@@ -91,21 +90,23 @@ class SwayMonitor(Monitor):
     def get_is_ten_bit_enabled(self):
         return self.config.is_ten_bit_enabled
 
-    def get_backend(self) -> MonitorBackend:
-        return self.config.backend
+    def get_backend(self):
+        return MonitorBackend.SWAY
 
     def to_config_string(self):
-        position = f"{self.get_x()},{self.get_y()}"
-        scale = f"{self.get_scale()}"
-        transform = f"transform,{self.get_transform()}"
-        mode = f"{self.get_logical_width()}x{self.get_logical_height()}@{self.get_refresh_rate()}"
-        return f"{self.get_name()} {position} {scale} {transform} {mode}"
+        return (
+            f"{self.get_name()} "
+            f"{self.get_x()},{self.get_y()} "
+            f"scale,{self.get_scale()} "
+            f"transform,{self.config.transform} "
+            f"{int(self.get_logical_width())}x{int(self.get_logical_height())}@{self.get_refresh_rate()}"
+        )
 
     def is_mirror_of(self, other):
-        return False  # Not implemented or detectable on sway
+        return False
 
     def is_mirror(self):
-        return False  # Not implemented or detectable on sway
+        return False
 
-    def get_transform(self):
-        return self.config.transform
+    def get_modes(self):
+        return []

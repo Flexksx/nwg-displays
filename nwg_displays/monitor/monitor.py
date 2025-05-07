@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import Tuple
+from typing import List, Tuple
+
+from nwg_displays.monitor.monitor_mode import MonitorMode
 
 
 class Monitor(ABC):
@@ -112,4 +114,9 @@ class Monitor(ABC):
     @abstractmethod
     def is_mirror(self) -> bool:
         """Check if the monitor is a mirror."""
+        pass
+
+    @abstractmethod
+    def get_modes(self) -> List[MonitorMode]:
+        """Get the modes of the monitor."""
         pass
