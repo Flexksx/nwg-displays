@@ -1,4 +1,4 @@
-from nwg_displays.workspace_rules.workspace_rule import WorkspaceRule
+from nwg_displays.workspace_rule.workspace_rule import WorkspaceRule
 
 
 class HyprlandWorkspaceRule(WorkspaceRule):

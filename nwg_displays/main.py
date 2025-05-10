@@ -18,9 +18,10 @@ import os.path
 import sys
 
 import gi
-from nwg_displays.gui.drag import make_draggable
+from nwg_displays.arguments.argument_parser_factory import ArgumentParserFactory
+from nwg_displays.configuration_service import ConfigurationService
 from nwg_displays.gui.languages import load_vocabulary
-from gui.drag import Draggable
+from nwg_displays.gui.drag import Draggable
 
 gi.require_version("Gtk", "3.0")
 try:
@@ -48,6 +49,7 @@ is_hyprland_session = os.getenv("HYPRLAND_INSTANCE_SIGNATURE") is not None
 config_dir = os.path.join(get_config_home(), "nwg-displays")
 # This was done by mistake, and the config file need to be migrated to the proper path
 old_config_dir = os.path.join(get_config_home(), "nwg-outputs")
+configuration_service = ConfigurationService()
 
 sway_config_dir = os.path.join(get_config_home(), "sway")
 if is_sway_session and not os.path.isdir(sway_config_dir):
@@ -78,7 +80,7 @@ else:
 
 config = {}
 outputs_path = ""
-num_ws = 0
+nr_workspaces_in_use = 0
 from typing import Dict, Any
 
 try:
@@ -731,10 +733,10 @@ def create_workspaces_window(btn):
     grid.set_column_spacing(12)
     grid.set_row_spacing(12)
     dialog_win.add(grid)
-    global num_ws
+    global nr_workspaces_in_use
     global outputs
     last_row = 0
-    for i in range(num_ws):
+    for i in range(nr_workspaces_in_use):
         lbl = Gtk.Label()
         lbl.set_text("workspace {} output ".format(i + 1))
         grid.attach(lbl, 0, i, 1, 1)
@@ -776,7 +778,7 @@ def create_workspaces_window(btn):
 def create_workspaces_window_hypr(btn):
     global workspaces
     workspaces = load_workspaces_hypr(
-        os.path.join(hypr_config_dir, "workspaces.conf"), num_ws=num_ws
+        os.path.join(hypr_config_dir, "workspaces.conf"), num_ws=nr_workspaces_in_use
     )
     eprint("WS->Mon:", workspaces)
     old_workspaces = workspaces.copy()
@@ -795,7 +797,7 @@ def create_workspaces_window_hypr(btn):
     dialog_win.add(grid)
     global outputs
     last_row = 0
-    for i in range(num_ws):
+    for i in range(nr_workspaces_in_use):
         lbl = Gtk.Label()
         if config["use-desc"]:
             lbl.set_markup(
@@ -1140,53 +1142,14 @@ def restore_old_settings(btn, backup, path):
 def main():
     GLib.set_prgname("nwg-displays")
 
-    parser = argparse.ArgumentParser()
+    parser = None
 
     if is_sway_session:
-        parser.add_argument(
-            "-o",
-            "--outputs_path",
-            type=str,
-            default="{}/outputs".format(sway_config_dir),
-            help="path to save Outputs config to, default: {}".format(
-                "{}/outputs".format(sway_config_dir)
-            ),
-        )
-
-        parser.add_argument(
-            "-n",
-            "--num_ws",
-            type=int,
-            default=8,
-            help="number of Workspaces in use, default: 8",
-        )
+        parser = ArgumentParserFactory().create_for_sway(sway_config_dir)
 
     elif is_hyprland_session:
-        parser.add_argument(
-            "-m",
-            "--monitors_path",
-            type=str,
-            default="{}/monitors.conf".format(hypr_config_dir),
-            help="path to save the monitors.conf file to, default: {}".format(
-                "{}/monitors.conf".format(hypr_config_dir)
-            ),
-        )
+        parser = ArgumentParserFactory().create_for_hyprland(hypr_config_dir)
 
-        parser.add_argument(
-            "-n",
-            "--num_ws",
-            type=int,
-            default=10,
-            help="number of Workspaces in use, default: 10",
-        )
-
-    parser.add_argument(
-        "-v",
-        "--version",
-        action="version",
-        version="%(prog)s version {}".format(__version__),
-        help="display version information",
-    )
     args = parser.parse_args()
 
     load_vocabulary(dir_name)
@@ -1205,14 +1168,13 @@ def main():
             eprint("Hyprland config directory not found!")
             outputs_path = ""
 
-    global num_ws
-    num_ws = args.num_ws
+    global nr_workspaces_in_use
+    nr_workspaces_in_use = args.num_ws
     if is_sway_session:
-        print("Number of workspaces: {}".format(num_ws))
+        print("Number of workspaces: {}".format(nr_workspaces_in_use))
 
-    config_file = os.path.join(config_dir, "config")
     global config
-    if not os.path.isfile(config_file):
+    """ if not os.path.isfile(config_file):
         # migrate old config file, if not yet migrated
         if os.path.isfile(os.path.join(old_config_dir, "config")):
             print("Migrating config to the proper path...")
@@ -1226,7 +1188,8 @@ def main():
         config = load_json(config_file)
 
     if config_keys_missing(config, config_file):
-        config = load_json(config_file)
+        config = load_json(config_file) """
+    config = configuration_service.load_config()
 
     eprint("Settings: {}".format(config))
 

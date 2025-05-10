@@ -1,10 +1,10 @@
 import json
 from typing import List
-from nwg_displays.workspace_rules.hyprland.hyprland_workspace_rule import (
+from nwg_displays.workspace_rule.hyprland.hyprland_workspace_rule import (
     HyprlandWorkspaceRule,
 )
-from nwg_displays.workspace_rules.workspace_rule import WorkspaceRule
-from nwg_displays.workspace_rules.workspace_rule_service import WorkspaceRuleService
+from nwg_displays.workspace_rule.workspace_rule import WorkspaceRule
+from nwg_displays.workspace_rule.workspace_rule_service import WorkspaceRuleService
 from tools import hyprctl
 
 

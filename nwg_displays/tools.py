@@ -276,28 +276,6 @@ def inactive_output_description(name):
     return None
 
 
-def config_keys_missing(config, config_file):
-    key_missing = False
-    defaults = {
-        "view-scale": 0.15,
-        "snap-threshold": 10,
-        "indicator-timeout": 500,
-        "custom-mode": [],
-        "use-desc": False,
-        "confirm-timeout": 10,
-    }
-    for key in defaults:
-        if key not in config:
-            config[key] = defaults[key]
-            print("Added missing config key: '{}'".format(key), file=sys.stderr)
-            key_missing = True
-
-    if key_missing:
-        save_json(config, config_file)
-
-    return key_missing
-
-
 def load_json(path):
     try:
         with open(path, "r") as f:
