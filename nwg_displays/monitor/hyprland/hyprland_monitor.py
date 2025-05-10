@@ -125,3 +125,12 @@ class HyprlandMonitor(Monitor):
 
     def get_transform(self) -> MonitorTransformMode:
         return self.config.transform
+
+    def get_is_mirror(self):
+        return self.config.is_mirror
+
+    def get_is_mirror_of(self):
+        return self.config.is_mirror_of
+
+    def get_scale_filter(self):
+        raise NotImplementedError

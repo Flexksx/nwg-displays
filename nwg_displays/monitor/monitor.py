@@ -39,6 +39,11 @@ class Monitor(ABC):
         pass
 
     @abstractmethod
+    def get_scale_filter(self) -> str:
+        """Get the scale filter of the monitor."""
+        pass
+
+    @abstractmethod
     def get_x(self) -> int:
         """Get the horizontal coordinate of the monitor."""
         pass
@@ -110,4 +115,14 @@ class Monitor(ABC):
     @abstractmethod
     def get_transform(self) -> MonitorTransformMode:
         """Get the transform of the monitor."""
+        pass
+
+    @abstractmethod
+    def get_is_mirror(self) -> bool:
+        """Get whether the monitor is a mirror."""
+        pass
+
+    @abstractmethod
+    def get_is_mirror_of(self) -> str | None:
+        """Get the name of the monitor it is mirroring."""
         pass

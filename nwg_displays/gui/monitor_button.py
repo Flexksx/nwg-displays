@@ -21,20 +21,20 @@ class MonitorButton(Gtk.Button):
         self._monitor.config.x = value
 
     def get_logical_width(self):
-        if self._monitor.get_transform_mode() in [
+        if self._monitor.get_transform() in [
             MonitorTransformMode.ROTATE_90,
             MonitorTransformMode.ROTATE_270,
         ]:
-            return self._monitor.get_logical_height() / self._monitor.get_scale()
-        return self._monitor.get_logical_width() / self._monitor.get_scale()
+            return self._monitor.get_height() / self._monitor.get_scale()
+        return self._monitor.get_width() / self._monitor.get_scale()
 
     def get_logical_height(self):
-        if self._monitor.get_transform_mode() in [
+        if self._monitor.get_transform() in [
             MonitorTransformMode.ROTATE_90,
             MonitorTransformMode.ROTATE_270,
         ]:
-            return self._monitor.get_logical_width() / self._monitor.get_scale()
-        return self._monitor.get_logical_height() / self._monitor.get_scale()
+            return self._monitor.get_width() / self._monitor.get_scale()
+        return self._monitor.get_height() / self._monitor.get_scale()
 
     def select(self):
         self.selected = True
@@ -60,3 +60,6 @@ class MonitorButton(Gtk.Button):
                 self.set_property("name", "selected-output")
             else:
                 self.set_property("name", "output")
+
+    def get_monitor(self) -> Monitor:
+        return self._monitor

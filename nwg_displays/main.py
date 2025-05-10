@@ -22,6 +22,7 @@ from nwg_displays.arguments.argument_parser_factory import ArgumentParserFactory
 from nwg_displays.configuration_service import ConfigurationService
 from nwg_displays.gui.languages import load_vocabulary
 from nwg_displays.gui.drag import Draggable
+from nwg_displays.gui.monitor_button import MonitorButton
 from nwg_displays.vocabulary_service import VocabularyService
 
 gi.require_version("Gtk", "3.0")
@@ -83,7 +84,7 @@ else:
 config = {}
 outputs_path = ""
 nr_workspaces_in_use = 0
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 try:
     from nwg_displays.monitor.monitor import Monitor
@@ -104,7 +105,7 @@ outputs = (
 outputs_activity = {}  # Just a dictionary "name": is_active - from get_outputs()
 workspaces = {}  # "workspace_num": "display_name"
 
-display_buttons = []
+monitor_buttons: List[MonitorButton] = []
 selected_output_button = None
 
 # Glade form fields
@@ -184,7 +185,7 @@ def on_button_press_event(widget, event):
         widget.indicator.show_up()
 
     if event.button == 1:
-        for db in display_buttons:
+        for db in monitor_buttons:
             if db.name == widget.name:
                 db.select()
             else:
@@ -232,7 +233,7 @@ def on_motion_notify_event(widget, event):
         px = x
         py = y
         snap_x, snap_y = [0], [0]
-        for db in display_buttons:
+        for db in monitor_buttons:
             if db.name == widget.name:
                 continue
 
@@ -306,35 +307,36 @@ def on_motion_notify_event(widget, event):
     update_form_from_widget(widget)
 
 
-def update_form_from_widget(widget):
-    form_name.set_text(widget.name)
-    if len(widget.description) > 48:
-        form_description.set_text(f"{widget.description[:47]}(…)")
+def update_form_from_widget(monitor_button: MonitorButton):
+    monitor = monitor_button.get_monitor()
+    form_name.set_text(monitor.get_name())
+    if len(monitor.get_model()) > 48:
+        form_description.set_text(f"{monitor.get_model()[:47]}(…)")
     else:
-        form_description.set_text(widget.description)
-    form_dpms.set_active(widget.dpms)
-    form_adaptive_sync.set_active(widget.adaptive_sync)
-    form_custom_mode.set_active(widget.custom_mode)
+        form_description.set_text(monitor.get_model())
+    form_dpms.set_active(monitor.get_is_dpms_enabled())
+    form_adaptive_sync.set_active(monitor.get_is_adaptive_sync_enabled())
+    form_custom_mode.set_active(False)
     form_view_scale.set_value(
         config["view-scale"]
     )  # not really from the widget, but from the global value
     form_use_desc.set_active(config["use-desc"])
-    form_x.set_value(widget.x)
-    form_y.set_value(widget.y)
-    form_width.set_value(widget.physical_width)
-    form_height.set_value(widget.physical_height)
-    form_scale.set_value(widget.scale)
-    form_scale_filter.set_active_id(widget.scale_filter)
-    form_refresh.set_value(widget.refresh)
+    form_x.set_value(monitor.get_x())
+    form_y.set_value(monitor.get_y())
+    form_width.set_value(monitor.get_width())
+    form_height.set_value(monitor.get_height())
+    form_scale.set_value(monitor.get_scale())
+    # form_scale_filter.set_active_id(monitor.get_scale_filter())
+    form_refresh.set_value(monitor.get_refresh_rate())
     if form_ten_bit:
-        form_ten_bit.set_active(widget.ten_bit)
+        form_ten_bit.set_active(monitor.get_is_ten_bit_enabled())
     if form_mirror:
         form_mirror.remove_all()
         form_mirror.append("", vocabulary.get("none", "None"))
         for key in outputs:
-            if key != widget.name:
+            if key != monitor.name:
                 form_mirror.append(key, key)
-        form_mirror.set_active_id(widget.mirror)
+        form_mirror.set_active_id(str(monitor.get_is_mirror()))
         form_mirror.show_all()
 
     global on_mode_changed_silent
@@ -342,141 +344,34 @@ def update_form_from_widget(widget):
 
     form_modes.remove_all()
     active = ""
-    for mode in widget.modes:
+    for mode in monitor.get_modes():
         m = "{}x{}@{}Hz".format(
-            mode["width"],
-            mode["height"],
-            mode["refresh"] / 1000,
-            mode["refresh"] / 1000,
-            widget.refresh,
+            # mode["width"],
+            # mode["height"],
+            # mode["refresh"] / 1000,
+            # mode["refresh"] / 1000,
+            # monitor.refresh,
+            mode.get_width(),
+            mode.get_height(),
+            mode.get_refresh_rate() / 1000,
+            mode.get_refresh_rate() / 1000,
+            monitor.get_refresh_rate(),
         )
         form_modes.append(m, m)
         # This is just to set active_id
 
         if (
-            mode["width"] == widget.physical_width
-            and mode["height"] == widget.physical_height
-            and mode["refresh"] / 1000 == widget.refresh
+            mode.get_width() == monitor.get_width()
+            and mode.get_height() == monitor.get_height()
+            and mode.get_refresh_rate() / 1000 == monitor.get_refresh_rate()
         ):
             active = m
     if active:
         form_modes.set_active_id(active)
 
-    form_transform.set_active_id(widget.transform)
+    form_transform.set_active_id(str(monitor.get_transform()))
 
     on_mode_changed_silent = False
-
-
-class DisplayButton(Gtk.Button):
-    def __init__(
-        self,
-        name,
-        description,
-        x,
-        y,
-        physical_width,
-        physical_height,
-        transform,
-        scale,
-        scale_filter,
-        refresh,
-        modes,
-        active,
-        dpms,
-        adaptive_sync_status,
-        ten_bit,
-        custom_mode_status,
-        focused,
-        monitor,
-        mirror="",
-    ):
-        super().__init__()
-        # Output properties
-        self.name = name
-        self.description = description
-        self.x = x
-        self.y = y
-        self.physical_width = physical_width
-        self.physical_height = physical_height
-        self.transform = transform
-        self.scale = scale
-        self.scale_filter = scale_filter
-        self.refresh = refresh
-        self.modes = []
-        for m in modes:
-            if m not in self.modes:
-                self.modes.append(m)
-        # self.modes = modes
-        self.active = active
-        self.dpms = dpms
-        self.adaptive_sync = (
-            adaptive_sync_status == "enabled"
-        )  # converts "enabled | disabled" to bool
-        self.custom_mode = custom_mode_status
-        self.focused = focused
-        self.mirror = mirror
-        self.ten_bit = ten_bit
-
-        # Button properties
-        self.selected = False
-        self.set_can_focus(False)
-        self.set_events(EvMask)
-        self.connect("button_press_event", on_button_press_event)
-        self.connect("motion_notify_event", on_motion_notify_event)
-        self.set_always_show_image(True)
-        self.set_label(self.name)
-
-        self.rescale_transform()
-        self.set_property("name", "output")
-
-        self.indicator = Indicator(
-            monitor,
-            name,
-            round(self.physical_width * config["view-scale"]),
-            round(self.physical_height * config["view-scale"]),
-            config["indicator-timeout"],
-        )
-
-        self.show()
-
-    @property
-    def logical_width(self):
-        if is_rotated(self.transform):
-            return self.physical_height / self.scale
-        else:
-            return self.physical_width / self.scale
-
-    @property
-    def logical_height(self):
-        if is_rotated(self.transform):
-            return self.physical_width / self.scale
-        else:
-            return self.physical_height / self.scale
-
-    def select(self):
-        self.selected = True
-        self.set_property("name", "selected-output")
-        global selected_output_button
-        selected_output_button = self
-
-    def unselect(self):
-        self.set_property("name", "output")
-
-    def rescale_transform(self):
-        self.set_size_request(
-            round(self.logical_width * config["view-scale"]),
-            round(self.logical_height * config["view-scale"]),
-        )
-
-    def on_active_check_button_toggled(self, w):
-        self.active = w.get_active()
-        if not self.active:
-            self.set_property("name", "inactive-output")
-        else:
-            if self == selected_output_button:
-                self.set_property("name", "selected-output")
-            else:
-                self.set_property("name", "output")
 
 
 def on_view_scale_changed(*args):
@@ -485,9 +380,13 @@ def on_view_scale_changed(*args):
     global snap_threshold_scaled
     snap_threshold_scaled = round(config["snap-threshold"] * config["view-scale"] * 10)
 
-    for b in display_buttons:
-        b.rescale_transform()
-        fixed.move(b, b.x * config["view-scale"], b.y * config["view-scale"])
+    for monitor_button in monitor_buttons:
+        monitor_button.rescale_transform()
+        fixed.move(
+            monitor_button,
+            monitor_button.get_monitor().get_x() * config["view-scale"],
+            monitor_button.get_monitor().get_y() * config["view-scale"],
+        )
 
     save_json(config, os.path.join(config_dir, "config"))
 
@@ -600,7 +499,7 @@ def on_mirror_selected(widget):
 def on_apply_button(widget):
     global outputs_activity
     apply_settings(
-        display_buttons, outputs_activity, outputs_path, use_desc=config["use-desc"]
+        monitor_buttons, outputs_activity, outputs_path, use_desc=config["use-desc"]
     )
     # save config file
     save_json(config, os.path.join(config_dir, "config"))
@@ -625,57 +524,32 @@ def on_toggle_button(btn):
 
 def create_display_buttons():
     """
-    Rebuilds the little rectangles that represent every display and puts them
-    in the `Gtk.Fixed` canvas.  Works for both Sway and Hyprland back-ends.
+    Rebuilds the rectangles that represent every display and puts them in the `Gtk.Fixed` canvas.
     """
-    global display_buttons, outputs
-    for b in display_buttons:
+    global monitor_buttons, outputs
+    for b in monitor_buttons:
         b.destroy()
-    display_buttons = []
+    monitor_buttons = []
 
-    # -- 1.  Discover monitors ------------------------------------------------
-    monitors = list_outputs()  # { name : Monitor }
-    outputs = {}  # legacy dict the rest of the GUI still uses
+    monitors = list_outputs()
+    outputs = {}
 
-    # -- 2.  Convert to old shape & create buttons ----------------------------
-    for name, mon in monitors.items():
-        info = monitor_to_dict(mon)
-        outputs[name] = info
+    for monitor_name, monitor in monitors.items():
 
-        custom_mode = name in config["custom-mode"]
+        custom_mode = monitor_name in config["custom-mode"]
 
-        btn = DisplayButton(
-            name,
-            info["description"],
-            info["x"],
-            info["y"],
-            round(info["physical-width"]),
-            round(info["physical-height"]),
-            info["transform"],
-            info["scale"],
-            info["scale_filter"],
-            info["refresh"],
-            info["modes"],
-            info["active"],
-            info["dpms"],
-            info["adaptive_sync_status"],
-            info["ten_bit"],
-            custom_mode,
-            info["focused"],
-            info["monitor"],
-            mirror=info["mirror"],
-        )
-        display_buttons.append(btn)
+        btn = MonitorButton(monitor=monitor)
+        monitor_buttons.append(btn)
         fixed.put(
             btn,
-            round(info["x"] * config["view-scale"]),
-            round(info["y"] * config["view-scale"]),
+            round(monitor.get_x() * config["view-scale"]),
+            round(monitor.get_y() * config["view-scale"]),
         )
 
     # Select the first output by default
-    if display_buttons:
-        display_buttons[0].select()
-        update_form_from_widget(display_buttons[0])
+    if monitor_buttons:
+        monitor_buttons[0].select()
+        update_form_from_widget(monitor_buttons[0])
 
 
 class Indicator(Gtk.Window):
@@ -1478,9 +1352,9 @@ def main():
         )
     )
 
-    if display_buttons:
-        update_form_from_widget(display_buttons[0])
-        display_buttons[0].select()
+    if monitor_buttons:
+        update_form_from_widget(monitor_buttons[0])
+        monitor_buttons[0].select()
 
     screen = Gdk.Screen.get_default()
     provider = Gtk.CssProvider()
