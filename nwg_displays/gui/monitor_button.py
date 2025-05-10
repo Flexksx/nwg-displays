@@ -1,42 +1,62 @@
 from gi.repository import Gtk
 from nwg_displays.monitor.monitor import Monitor
-from nwg_displays.gui.drag import Draggable  # ← the helper you just created
+from nwg_displays.monitor.monitor_transform_mode import MonitorTransformMode
+from nwg_displays.configuration_service import ConfigurationService
 
 
 class MonitorButton(Gtk.Button):
-    """
-    A button that represents a monitor in the display manager.
-    """
-
     def __init__(
         self,
         monitor: Monitor,
-        *,
-        canvas: Gtk.Fixed,
-        scale_fn,
-        snap_fn,
-        siblings_fn,
-        after_move_cb=None,
-        **kwargs,
     ):
-        super().__init__(**kwargs)
+        super().__init__()
         self._monitor = monitor
-        self.set_label(monitor.get_name())
-        self.set_can_focus(False)
+        self.__config = ConfigurationService().load_config()
+        self._is_selected = False
 
-        self._draggable = Draggable(
-            widget=self,
-            canvas=canvas,
-            scale_fn=scale_fn,
-            snap_fn=snap_fn,
-            siblings_fn=siblings_fn,
-            after_move_cb=after_move_cb,
-        )
-
-    @property
-    def x(self):
+    def get_x(self):
         return self._monitor.get_x()
 
-    @x.setter
-    def x(self, value):
+    def set_x(self, value):
         self._monitor.config.x = value
+
+    def get_logical_width(self):
+        if self._monitor.get_transform_mode() in [
+            MonitorTransformMode.ROTATE_90,
+            MonitorTransformMode.ROTATE_270,
+        ]:
+            return self._monitor.get_logical_height() / self._monitor.get_scale()
+        return self._monitor.get_logical_width() / self._monitor.get_scale()
+
+    def get_logical_height(self):
+        if self._monitor.get_transform_mode() in [
+            MonitorTransformMode.ROTATE_90,
+            MonitorTransformMode.ROTATE_270,
+        ]:
+            return self._monitor.get_logical_width() / self._monitor.get_scale()
+        return self._monitor.get_logical_height() / self._monitor.get_scale()
+
+    def select(self):
+        self.selected = True
+        self.set_property("name", "selected-output")
+        global selected_output_button
+        selected_output_button = self
+
+    def unselect(self):
+        self.set_property("name", "output")
+
+    def rescale_transform(self):
+        self.set_size_request(
+            round(self.get_logical_width() * self.__config["view-scale"]),
+            round(self.get_logical_height() * self.__config["view-scale"]),
+        )
+
+    def on_active_check_button_toggled(self, button):
+        self.active = button.get_active()
+        if not self.active:
+            self.set_property("name", "inactive-output")
+        else:
+            if self == selected_output_button:
+                self.set_property("name", "selected-output")
+            else:
+                self.set_property("name", "output")

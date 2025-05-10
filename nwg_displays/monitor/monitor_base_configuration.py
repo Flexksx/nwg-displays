@@ -1,6 +1,7 @@
 from typing import Optional
 
 from nwg_displays.monitor.backend import MonitorBackend
+from nwg_displays.monitor.monitor_transform_mode import MonitorTransformMode
 
 
 class MonitorBaseConfiguration:
@@ -18,7 +19,7 @@ class MonitorBaseConfiguration:
         physical_width: int = 0,
         physical_height: int = 0,
         refresh_rate: Optional[float] = 60.0,
-        transform: Optional[int] = 0,
+        transform: MonitorTransformMode = MonitorTransformMode.NONE,
         is_adaptive_sync_enabled: Optional[bool] = False,
         is_dpms_enabled: Optional[bool] = False,
         is_ten_bit_enabled: Optional[bool] = False,

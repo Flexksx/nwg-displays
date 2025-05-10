@@ -22,6 +22,7 @@ from nwg_displays.arguments.argument_parser_factory import ArgumentParserFactory
 from nwg_displays.configuration_service import ConfigurationService
 from nwg_displays.gui.languages import load_vocabulary
 from nwg_displays.gui.drag import Draggable
+from nwg_displays.vocabulary_service import VocabularyService
 
 gi.require_version("Gtk", "3.0")
 try:
@@ -50,6 +51,7 @@ config_dir = os.path.join(get_config_home(), "nwg-displays")
 # This was done by mistake, and the config file need to be migrated to the proper path
 old_config_dir = os.path.join(get_config_home(), "nwg-outputs")
 configuration_service = ConfigurationService()
+vocabulary_service = VocabularyService()
 
 sway_config_dir = os.path.join(get_config_home(), "sway")
 if is_sway_session and not os.path.isdir(sway_config_dir):
@@ -158,7 +160,7 @@ py = 0
 max_x = 0
 max_y = 0
 
-voc = {}
+vocabulary = {}
 
 # Add these functions to main.py
 
@@ -170,7 +172,7 @@ def show_error_dialog(parent_win, message):
         flags=0,
         message_type=Gtk.MessageType.ERROR,
         buttons=Gtk.ButtonsType.OK,
-        text=voc.get("error", "Error"),
+        text=vocabulary.get("error", "Error"),
     )
     error_dialog.format_secondary_text(message)
     error_dialog.run()
@@ -328,7 +330,7 @@ def update_form_from_widget(widget):
         form_ten_bit.set_active(widget.ten_bit)
     if form_mirror:
         form_mirror.remove_all()
-        form_mirror.append("", voc["none"])
+        form_mirror.append("", vocabulary.get("none", "None"))
         for key in outputs:
             if key != widget.name:
                 form_mirror.append(key, key)
@@ -757,7 +759,7 @@ def create_workspaces_window(btn):
     grid.attach(box, 0, last_row + 1, 2, 1)
 
     btn_apply = Gtk.Button()
-    btn_apply.set_label(voc["apply"])
+    btn_apply.set_label(vocabulary.get("apply", "Apply"))
     if sway_config_dir:
         btn_apply.connect(
             "clicked", on_workspaces_apply_btn, dialog_win, old_workspaces
@@ -768,7 +770,7 @@ def create_workspaces_window(btn):
     box.pack_end(btn_apply, False, False, 0)
 
     btn_close = Gtk.Button()
-    btn_close.set_label(voc["close"])
+    btn_close.set_label(vocabulary["close"])
     btn_close.connect("clicked", close_dialog, dialog_win)
     box.pack_end(btn_close, False, False, 6)
 
@@ -826,7 +828,7 @@ def create_workspaces_window_hypr(btn):
     grid.attach(box, 0, last_row + 1, 2, 1)
 
     btn_apply = Gtk.Button()
-    btn_apply.set_label(voc["apply"])
+    btn_apply.set_label(vocabulary["apply"])
     if hypr_config_dir:
         btn_apply.connect(
             "clicked", on_workspaces_apply_btn_hypr, dialog_win, old_workspaces
@@ -837,7 +839,7 @@ def create_workspaces_window_hypr(btn):
     box.pack_end(btn_apply, False, False, 0)
 
     btn_close = Gtk.Button()
-    btn_close.set_label(voc["close"])
+    btn_close.set_label(vocabulary["close"])
     btn_close.connect("clicked", close_dialog, dialog_win)
     box.pack_end(btn_close, False, False, 6)
 
@@ -1064,7 +1066,7 @@ def create_confirm_win(backup, path):
     grid.set_column_homogeneous(True)
     grid.set_property("margin", 12)
     confirm_win.add(grid)
-    lbl = Gtk.Label.new("{}?".format(voc["keep-current-settings"]))
+    lbl = Gtk.Label.new("{}?".format(vocabulary["keep-current-settings"]))
     grid.attach(lbl, 0, 0, 2, 1)
 
     global counter
@@ -1072,12 +1074,12 @@ def create_confirm_win(backup, path):
 
     cnt_lbl = Gtk.Label.new(str(counter))
     grid.attach(cnt_lbl, 0, 1, 2, 1)
-    btn_restore = Gtk.Button.new_with_label(voc["restore"])
+    btn_restore = Gtk.Button.new_with_label(vocabulary["restore"])
 
     btn_restore.connect("clicked", restore_old_settings, backup, path)
 
     grid.attach(btn_restore, 0, 2, 1, 1)
-    btn_keep = Gtk.Button.new_with_label(voc["keep"])
+    btn_keep = Gtk.Button.new_with_label(vocabulary["keep"])
     btn_keep.connect("clicked", keep_current_settings)
     grid.attach(btn_keep, 1, 2, 1, 1)
 
@@ -1152,7 +1154,7 @@ def main():
 
     args = parser.parse_args()
 
-    load_vocabulary(dir_name)
+    vocabulary_service.load(dir_name)
 
     global outputs_path
     if is_sway_session:
@@ -1174,21 +1176,7 @@ def main():
         print("Number of workspaces: {}".format(nr_workspaces_in_use))
 
     global config
-    """ if not os.path.isfile(config_file):
-        # migrate old config file, if not yet migrated
-        if os.path.isfile(os.path.join(old_config_dir, "config")):
-            print("Migrating config to the proper path...")
-            os.rename(old_config_dir, config_dir)
-        else:
-            if not os.path.isdir(config_dir):
-                os.makedirs(config_dir, exist_ok=True)
-            print("'{}' file not found, creating default".format(config_file))
-            save_json(config, config_file)
-    else:
-        config = load_json(config_file)
 
-    if config_keys_missing(config, config_file):
-        config = load_json(config_file) """
     config = configuration_service.load_config()
 
     eprint("Settings: {}".format(config))
@@ -1219,15 +1207,30 @@ def main():
     window.connect("key-release-event", handle_keyboard)
     window.connect("destroy", Gtk.main_quit)
 
-    builder.get_object("lbl-modes").set_label("{}:".format(voc["modes"]))
-    builder.get_object("lbl-position-x").set_label("{}:".format(voc["position-x"]))
-    builder.get_object("lbl-refresh").set_label("{}:".format(voc["refresh"]))
-    builder.get_object("lbl-scale").set_label("{}:".format(voc["scale"]))
-    builder.get_object("lbl-scale-filter").set_label("{}:".format(voc["scale-filter"]))
-    builder.get_object("lbl-size").set_label("{}:".format(voc["size"]))
-    builder.get_object("lbl-transform").set_label("{}:".format(voc["transform"]))
-    builder.get_object("lbl-zoom").set_label("{}:".format(voc["zoom"]))
-
+    builder.get_object("lbl-modes").set_label(
+        "{}:".format(vocabulary.get("modes", "Modes"))
+    )
+    builder.get_object("lbl-position-x").set_label(
+        "{}:".format(vocabulary.get("position-x", "Position X"))
+    )
+    builder.get_object("lbl-refresh").set_label(
+        "{}:".format(vocabulary.get("refresh", "Refresh"))
+    )
+    builder.get_object("lbl-scale").set_label(
+        "{}:".format(vocabulary.get("scale", "Scale"))
+    )
+    builder.get_object("lbl-scale-filter").set_label(
+        "{}:".format(vocabulary.get("scale-filter", "Scale Filter"))
+    )
+    builder.get_object("lbl-size").set_label(
+        "{}:".format(vocabulary.get("size", "Size"))
+    )
+    builder.get_object("lbl-transform").set_label(
+        "{}:".format(vocabulary.get("transform", "Transform"))
+    )
+    builder.get_object("lbl-zoom").set_label(
+        "{}:".format(vocabulary.get("zoom", "Zoom"))
+    )
     global form_name
     form_name = builder.get_object("name")
 
@@ -1236,7 +1239,7 @@ def main():
 
     global form_dpms
     form_dpms = builder.get_object("dpms")
-    form_dpms.set_tooltip_text(voc["dpms-tooltip"])
+    form_dpms.set_tooltip_text(vocabulary.get("dpms-tooltip", "DPMS Configuration"))
     form_dpms.connect("toggled", on_dpms_toggled)
     # if sway:
     #     form_dpms.set_tooltip_text(voc["dpms-tooltip"])
@@ -1247,8 +1250,13 @@ def main():
     global form_adaptive_sync
     form_adaptive_sync = builder.get_object("adaptive-sync")
     if is_sway_session:
-        form_adaptive_sync.set_label(voc["adaptive-sync"])
-        form_adaptive_sync.set_tooltip_text(voc["adaptive-sync-tooltip"])
+        form_adaptive_sync.set_label(vocabulary.get("adaptive-sync", "Adaptive sync"))
+        form_adaptive_sync.set_tooltip_text(
+            vocabulary.get(
+                "adaptive-sync-tooltip",
+                "Enables or disables adaptive synchronization \n(often referred to as Variable Refresh Rate, \nor by the vendor-specific names FreeSync/G-Sync).",
+            )
+        )
         form_adaptive_sync.connect("toggled", on_adaptive_sync_toggled)
     else:
         form_adaptive_sync.set_sensitive(False)
@@ -1256,15 +1264,20 @@ def main():
     global form_custom_mode
     form_custom_mode = builder.get_object("custom-mode")
     if is_sway_session:
-        form_custom_mode.set_label(voc["custom-mode"])
-        form_custom_mode.set_tooltip_text(voc["custom-mode-tooltip"])
+        form_custom_mode.set_label(vocabulary.get("custom-mode", "Custom mode"))
+        form_custom_mode.set_tooltip_text(
+            vocabulary.get(
+                "custom-mode-tooltip",
+                "Adds '--custom' argument to set a mode \nnot listed in the list of available modes.\nUse this ONLY if you know what you're doing.",
+            )
+        )
         form_custom_mode.connect("toggled", on_custom_mode_toggle)
     else:
         form_custom_mode.set_sensitive(False)
 
     global form_view_scale
     form_view_scale = builder.get_object("view-scale")
-    form_view_scale.set_tooltip_text(voc["view-scale-tooltip"])
+    form_view_scale.set_tooltip_text(vocabulary.get("view-scale-tooltip", "Scale view"))
     adj = Gtk.Adjustment(
         lower=0.1, upper=0.6, step_increment=0.05, page_increment=0.1, page_size=0.1
     )
@@ -1314,7 +1327,7 @@ def main():
     global form_scale_filter
     form_scale_filter = builder.get_object("scale-filter")
     if is_sway_session:
-        form_scale_filter.set_tooltip_text(voc["scale-filter-tooltip"])
+        form_scale_filter.set_tooltip_text(vocabulary["scale-filter-tooltip"])
         form_scale_filter.connect("changed", on_scale_filter_changed)
     else:
         form_scale_filter.set_sensitive(False)
@@ -1329,18 +1342,31 @@ def main():
 
     global form_modes
     form_modes = builder.get_object("modes")
-    form_modes.set_tooltip_text(voc["modes-tooltip"])
+    form_modes.set_tooltip_text(
+        vocabulary.get("modes-tooltip", "Available display modes")
+    )
     form_modes.connect("changed", on_mode_changed)
 
     global form_use_desc
     form_use_desc = builder.get_object("use-desc")
-    form_use_desc.set_label("{}".format(voc["use-desc"]))
-    form_use_desc.set_tooltip_text("{}".format(voc["use-desc-tooltip"]))
+    form_use_desc.set_label("{}".format(vocabulary.get("use-desc", "Use Descriptions")))
+    form_use_desc.set_tooltip_text(
+        "{}".format(
+            vocabulary.get(
+                "use-desc-tooltip", "Use display descriptions instead of names"
+            )
+        )
+    )
     form_use_desc.connect("toggled", on_use_desc_toggled)
 
     global form_transform
     form_transform = builder.get_object("transform")
-    form_transform.set_tooltip_text(voc["transform-tooltip"])
+    form_transform.set_tooltip_text(
+        vocabulary.get(
+            "transform-tooltip",
+            "Transformations are used to rotate, flip or mirror the display.",
+        )
+    )
     form_transform.connect("changed", on_transform_changed)
 
     global form_wrapper_box
@@ -1348,8 +1374,11 @@ def main():
 
     global form_workspaces
     form_workspaces = builder.get_object("workspaces")
-    form_workspaces.set_label(voc["workspaces"])
-    form_workspaces.set_tooltip_text(voc["workspaces-tooltip"])
+    form_workspaces.set_label("{}:".format(vocabulary.get("workspaces", "Workspaces")))
+    form_workspaces.set_tooltip_text(
+        "{}".format(vocabulary.get("workspaces-tooltip", "Workspaces assignment"))
+    )
+
     if is_sway_session:
         form_workspaces.connect("clicked", create_workspaces_window)
     elif is_hyprland_session:
@@ -1357,13 +1386,15 @@ def main():
 
     global form_close
     form_close = builder.get_object("close")
-    form_close.set_label(voc["close"])
+    form_close.set_label(vocabulary.get("close", "Close"))
+
     form_close.connect("clicked", Gtk.main_quit)
     form_close.grab_focus()
 
     global form_apply
     form_apply = builder.get_object("apply")
-    form_apply.set_label(voc["apply"])
+    form_apply.set_label(vocabulary.get("apply", "Apply"))
+
     if (is_sway_session and sway_config_dir) or (
         is_hyprland_session and hypr_config_dir
     ):
@@ -1387,7 +1418,7 @@ def main():
     global outputs_activity
     outputs_activity = list_outputs_activity()
     lbl = Gtk.Label()
-    lbl.set_text("{}:".format(voc["active"]))
+    lbl.set_text("{}:".format(vocabulary.get("active", "Active")))
     form_wrapper_box.pack_start(lbl, False, False, 3)
     for key in outputs_activity:
         cb = Gtk.CheckButton()
@@ -1396,9 +1427,11 @@ def main():
         cb.connect("toggled", on_output_toggled, key)
         form_wrapper_box.pack_start(cb, False, False, 3)
 
-    btn = Gtk.Button.new_with_label(voc["toggle"])
+    btn = Gtk.Button.new_with_label(vocabulary.get("toggle", "Toggle"))
     if is_sway_session:
-        btn.set_tooltip_text(voc["toggle-tooltip"])
+        btn.set_tooltip_text(
+            vocabulary.get("toggle-tooltip", "Enables/disables outputs.")
+        )
         btn.connect("clicked", on_toggle_button)
         form_wrapper_box.pack_start(btn, False, False, 3)
     else:
@@ -1408,8 +1441,14 @@ def main():
         grid = builder.get_object("grid")
 
         global form_ten_bit
-        form_ten_bit = Gtk.CheckButton.new_with_label(voc["10-bit-support"])
-        form_ten_bit.set_tooltip_text(voc["10-bit-support-tooltip"])
+        form_ten_bit = Gtk.CheckButton.new_with_label(
+            vocabulary.get("10-bit-support", "10 bit support")
+        )
+        form_ten_bit.set_tooltip_text(
+            vocabulary.get(
+                "10-bit-support-tooltip", "Enables support for 10-bit color depth."
+            )
+        )
         form_ten_bit.connect("toggled", on_ten_bit_toggled)
         grid.attach(form_ten_bit, 5, 4, 1, 1)
 
@@ -1427,26 +1466,17 @@ def main():
     form_wrapper_box.pack_start(profiles_box, False, False, 10)
 
     profile_label = Gtk.Label()
-    profile_label.set_text(voc.get("profiles", "Profiles:"))
+    profile_label.set_text(vocabulary.get("profiles", "Profiles:"))
     profiles_box.pack_start(profile_label, False, False, 3)
 
     btn_save_profile = Gtk.Button.new_with_label(
-        voc.get("save-profile", "Save Profile")
+        vocabulary.get("save-profile", "Save Profile")
     )
     btn_save_profile.set_tooltip_text(
-        voc.get("save-profile-tooltip", "Save current configuration as a profile")
+        vocabulary.get(
+            "save-profile-tooltip", "Save current configuration as a profile"
+        )
     )
-    btn_save_profile.connect("clicked", create_save_profile_dialog)
-    profiles_box.pack_start(btn_save_profile, False, False, 3)
-
-    btn_load_profile = Gtk.Button.new_with_label(
-        voc.get("load-profile", "Load Profile")
-    )
-    btn_load_profile.set_tooltip_text(
-        voc.get("load-profile-tooltip", "Load a saved profile")
-    )
-    btn_load_profile.connect("clicked", create_load_profile_dialog)
-    profiles_box.pack_start(btn_load_profile, False, False, 3)
 
     if display_buttons:
         update_form_from_widget(display_buttons[0])

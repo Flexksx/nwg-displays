@@ -60,13 +60,13 @@ class SwayMonitor(Monitor):
     def get_y(self):
         return self.config.y
 
-    def get_physical_width(self):
+    def get_width(self):
         return self.config.physical_width
 
-    def get_physical_height(self):
+    def get_height(self):
         return self.config.physical_height
 
-    def get_physical_size(self):
+    def get_size(self):
         return (self.config.physical_width, self.config.physical_height)
 
     def get_logical_width(self):

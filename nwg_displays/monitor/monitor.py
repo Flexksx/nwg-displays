@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Tuple
 
 from nwg_displays.monitor.monitor_mode import MonitorMode
+from nwg_displays.monitor.monitor_transform_mode import MonitorTransformMode
 
 
 class Monitor(ABC):
@@ -48,32 +49,17 @@ class Monitor(ABC):
         pass
 
     @abstractmethod
-    def get_physical_width(self) -> int:
+    def get_width(self) -> int:
         """Get the width of the monitor."""
         pass
 
     @abstractmethod
-    def get_physical_height(self) -> int:
+    def get_height(self) -> int:
         """Get the height of the monitor."""
         pass
 
     @abstractmethod
-    def get_physical_size(self) -> Tuple[int, int]:
-        pass
-
-    @abstractmethod
-    def get_logical_width(self) -> int:
-        """Get the logical width of the monitor"""
-        pass
-
-    @abstractmethod
-    def get_logical_height(self) -> int:
-        """Get the logical height of the monitor"""
-        pass
-
-    @abstractmethod
-    def get_logical_size(self) -> Tuple[int, int]:
-        """Get the logical size of the monitor"""
+    def get_size(self) -> Tuple[int, int]:
         pass
 
     @abstractmethod
@@ -119,4 +105,9 @@ class Monitor(ABC):
     @abstractmethod
     def get_modes(self) -> List[MonitorMode]:
         """Get the modes of the monitor."""
+        pass
+
+    @abstractmethod
+    def get_transform(self) -> MonitorTransformMode:
+        """Get the transform of the monitor."""
         pass

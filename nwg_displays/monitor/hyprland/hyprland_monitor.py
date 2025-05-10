@@ -3,6 +3,7 @@ from nwg_displays.monitor.hyprland.hyprland_monitor_mode import HyprlandMonitorM
 from nwg_displays.monitor.monitor import Monitor
 from nwg_displays.monitor.monitor_base_configuration import MonitorBaseConfiguration
 from nwg_displays.monitor.monitor_mode import MonitorMode
+from nwg_displays.monitor.monitor_transform_mode import MonitorTransformMode
 
 
 class HyprlandMonitor(Monitor):
@@ -22,7 +23,7 @@ class HyprlandMonitor(Monitor):
         super().__init__()
 
     def __repr__(self):
-        return f"(HyprlandMonitor {self.get_name()} mode {self.get_physical_width()}x{self.get_physical_height()}@{self.get_refresh_rate()}, scale {self.get_scale()}, {len(self.available_modes)} modes)"
+        return f"(HyprlandMonitor {self.get_name()} mode {self.get_width()}x{self.get_height()}@{self.get_refresh_rate()}, scale {self.get_scale()}, {len(self.available_modes)} modes, transform {self.get_transform()})"
 
     @classmethod
     def from_hyprland_response(cls, data: dict) -> "HyprlandMonitor":
@@ -30,6 +31,11 @@ class HyprlandMonitor(Monitor):
         is_mirror = False
         if is_mirror_of is not None:
             is_mirror = True
+        transform_int = data.get("transform", 0)
+        monitor_transform_mode: MonitorTransformMode = MonitorTransformMode(
+            transform_int
+        )
+
         config = MonitorBaseConfiguration(
             name=data["name"],
             make=data["make"],
@@ -42,7 +48,7 @@ class HyprlandMonitor(Monitor):
             physical_width=data["width"],
             physical_height=data["height"],
             refresh_rate=round(data.get("refreshRate", 0.0), 2),
-            transform=data.get("transform", 0),
+            transform=monitor_transform_mode,
             is_dpms_enabled=data.get("dpmsStatus", True),
             is_adaptive_sync_enabled=data.get("vrr", False),
             is_ten_bit_enabled=data.get("currentFormat")
@@ -68,23 +74,14 @@ class HyprlandMonitor(Monitor):
     def get_y(self):
         return self.config.y
 
-    def get_physical_width(self):
+    def get_width(self):
         return self.config.physical_width
 
-    def get_physical_height(self):
+    def get_height(self):
         return self.config.physical_height
 
-    def get_physical_size(self):
+    def get_size(self):
         return (self.config.physical_width, self.config.physical_height)
-
-    def get_logical_width(self):
-        return self.config.physical_width / self.config.scale
-
-    def get_logical_height(self):
-        return self.config.physical_height / self.config.scale
-
-    def get_logical_size(self):
-        return (self.get_logical_width(), self.get_logical_height())
 
     def get_refresh_rate(self):
         return self.config.refresh_rate
@@ -125,3 +122,6 @@ class HyprlandMonitor(Monitor):
 
     def get_modes(self):
         return self.available_modes
+
+    def get_transform(self) -> MonitorTransformMode:
+        return self.config.transform
