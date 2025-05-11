@@ -7,11 +7,13 @@ import subprocess
 import sys
 
 import gi
+from nwg_displays.logger import logger
 from nwg_displays.hyprland.hyprctl import hyprctl
 from nwg_displays.monitor.hyprland.hyprland_monitor_service import (
     HyprlandMonitorService,
 )
 from nwg_displays.monitor.monitor import Monitor
+from nwg_displays.monitor.monitor_service import MonitorService
 from nwg_displays.monitor.sway.sway_monitor_service import SwayMonitorService
 
 gi.require_version("Gdk", "3.0")
@@ -54,42 +56,39 @@ def list_outputs() -> dict[str, Monitor]:
     objects (either SwayMonitor or HyprlandMonitor).  All downstream code
     continues to work because every monitor implements the same interface.
     """
-    # 1. Pick the backend -------------------------------------------------
+    service: MonitorService = None
     if os.getenv("SWAYSOCK"):
         service = SwayMonitorService()
-        eprint("Running on sway")
+        logger.info("Running on sway")
     elif os.getenv("HYPRLAND_INSTANCE_SIGNATURE"):
         service = HyprlandMonitorService()
-        eprint("Running on Hyprland")
+        logger.info("Running on Hyprland")
     else:
-        eprint(
+        logger.error(
             "This program only supports sway and Hyprland, "
             "and we seem to be elsewhere, terminating."
         )
         sys.exit(1)
 
-    # 2. Ask the service for Monitor objects -----------------------------
     monitors: list[Monitor] = service.list()
 
-    # 3. Tie each monitor to a Gdk.Monitor (by index order; GTK bug forces this)
     gdk_display = Gdk.Display.get_default()
     gdk_monitors = [
         gdk_display.get_monitor(i) for i in range(gdk_display.get_n_monitors())
     ]
+    logger.debug("Gdk monitors: %s", gdk_monitors)
 
-    for idx, mon in enumerate(monitors):
+    for i, monitor in enumerate(monitors):
         try:
-            # The concrete Monitor classes expose .config.monitor for convenience;
+            # The concrete Monitor classes expose .config.gdk_monitor for convenience;
             # we attach the Gdk.Monitor there so UI code can query DPI, geometry…
-            mon.config.monitor = gdk_monitors[idx]
+            monitor.set_gdk_monitor(gdk_monitors[i])
         except IndexError:
-            eprint(f"Couldn't assign a Gdk.Monitor object to {mon.get_name()}")
+            logger.error(
+                f"Couldn't assign a Gdk.Monitor object to {monitor.get_name()}"
+            )
 
-    # 4. Debug print (was eprint(key, outputs_dict[key]) previously) ------
-    for mon in monitors:
-        eprint(mon)  # relies on __repr__ implemented in both backends
-
-    # 5. Return a {name: Monitor} mapping (API-compatible with old callers)
+    logger.debug("Got monitors: %s", monitors)
     return {mon.get_name(): mon for mon in monitors}
 
 

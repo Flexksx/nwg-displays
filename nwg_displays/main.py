@@ -13,16 +13,17 @@ https://gist.github.com/KurtJacobson/57679e5036dc78e6a7a3ba5e0155dad1
 Thank you, Kurt Jacobson!
 """
 
-import argparse
-import os.path
 import sys
 
 import gi
+from nwg_displays.gui.form.monitor_configuration_form_view import (
+    MonitorConfigurationFormView,
+)
+from nwg_displays.logger import logger
 from nwg_displays.arguments.argument_parser_factory import ArgumentParserFactory
 from nwg_displays.configuration_service import ConfigurationService
-from nwg_displays.gui.languages import load_vocabulary
-from nwg_displays.gui.drag import Draggable
-from nwg_displays.gui.monitor_button import MonitorButton
+from nwg_displays.gui.draggable_monitor_button import DraggableMonitorButton
+from nwg_displays.session.session_service import SessionService
 from nwg_displays.vocabulary_service import VocabularyService
 
 gi.require_version("Gtk", "3.0")
@@ -45,40 +46,44 @@ from nwg_displays.tools import *
 from nwg_displays.__about__ import __version__
 
 dir_name = os.path.dirname(__file__)
-is_sway_session = os.getenv("SWAYSOCK") is not None
-is_hyprland_session = os.getenv("HYPRLAND_INSTANCE_SIGNATURE") is not None
 
 config_dir = os.path.join(get_config_home(), "nwg-displays")
 # This was done by mistake, and the config file need to be migrated to the proper path
 old_config_dir = os.path.join(get_config_home(), "nwg-outputs")
+session_service = SessionService()
 configuration_service = ConfigurationService()
 vocabulary_service = VocabularyService()
 
 sway_config_dir = os.path.join(get_config_home(), "sway")
-if is_sway_session and not os.path.isdir(sway_config_dir):
-    print(
+if session_service.is_sway_session() and not os.path.isdir(sway_config_dir):
+    logger.error(
         "WARNING: Couldn't find sway config directory '{}'".format(sway_config_dir),
         file=sys.stderr,
     )
     sys.exit(1)
 
 hypr_config_dir = os.path.join(get_config_home(), "hypr")
-if is_hyprland_session and not os.path.isdir(hypr_config_dir):
-    print(
+if session_service.is_hyprland_session() and not os.path.isdir(hypr_config_dir):
+    logger.error(
         "WARNING: Couldn't find Hyprland config directory '{}'".format(hypr_config_dir),
         file=sys.stderr,
     )
     sys.exit(1)
 
-# Create empty files if not found
-if is_sway_session:
+if session_service.is_sway_session():
     for name in ["outputs", "workspaces"]:
+        logger.debug(
+            "Creating empty file in sway config directory: {}".format(name),
+        )
         create_empty_file(os.path.join(sway_config_dir, name))
-elif is_hyprland_session:
+elif session_service.is_hyprland_session():
     for name in ["monitors.conf", "workspaces.conf"]:
+        logger.debug(
+            "Creating empty file in Hyprland config directory: {}".format(name),
+        )
         create_empty_file(os.path.join(hypr_config_dir, name))
 else:
-    eprint("Neither sway nor Hyprland detected, terminating")
+    logger.error("Neither sway nor Hyprland detected, terminating", file=sys.stderr)
     sys.exit(1)
 
 config = {}
@@ -105,34 +110,10 @@ outputs = (
 outputs_activity = {}  # Just a dictionary "name": is_active - from get_outputs()
 workspaces = {}  # "workspace_num": "display_name"
 
-monitor_buttons: List[MonitorButton] = []
+monitor_buttons: List[DraggableMonitorButton] = []
 selected_output_button = None
-
 # Glade form fields
-form_name = None
-form_description = None
-form_dpms = None
-form_adaptive_sync = None
-form_custom_mode = None
-form_view_scale = None
-form_use_desc = None
-form_x = None
-form_y = None
-form_width = None
-form_height = None
-form_scale = None
-form_scale_filter = None
-form_refresh = None
-form_modes = None
-form_transform = None
-form_wrapper_box = None
-form_workspaces = None
-form_close = None
-form_apply = None
-form_version = None
-form_mirror = None
-form_ten_bit = None
-
+form_view = None
 dialog_win = None
 confirm_win = None
 src_tag = 0
@@ -148,7 +129,6 @@ on_mode_changed_silent = False
 # Value from config adjusted to current view scale
 snap_threshold_scaled = None
 
-fixed = Gtk.Fixed()
 
 SENSITIVITY = 1
 
@@ -209,169 +189,7 @@ def on_button_press_event(widget, event):
             p.get_allocation().height - widget.get_allocation().height, SENSITIVITY
         )
 
-        update_form_from_widget(widget)
-
-
-def on_motion_notify_event(widget, event):
-    # x_root,x_root relative to screen
-    # x,y relative to parent (fixed widget)
-    # px,py stores previous values of x,y
-
-    global px, py
-    global offset_x, offset_y
-
-    # get starting values for x,y
-    x = event.x_root - offset_x
-    y = event.y_root - offset_y
-    # make sure the potential coordinates x,y:
-    #   1) will not push any part of the widget outside of its parent container
-    #   2) is a multiple of SENSITIVITY
-    x = round_to_nearest_multiple(max(min(x, max_x), 0), SENSITIVITY)
-    y = round_to_nearest_multiple(max(min(y, max_y), 0), SENSITIVITY)
-
-    if x != px or y != py:
-        px = x
-        py = y
-        snap_x, snap_y = [0], [0]
-        for db in monitor_buttons:
-            if db.name == widget.name:
-                continue
-
-            val = db.x * config["view-scale"]
-            if val not in snap_x:
-                snap_x.append(val)
-
-            val = (db.x + db.logical_width) * config["view-scale"]
-            if val not in snap_x:
-                snap_x.append(val)
-
-            val = db.y * config["view-scale"]
-            if val not in snap_y:
-                snap_y.append(val)
-
-            val = (db.y + db.logical_height) * config["view-scale"]
-            if val not in snap_y:
-                snap_y.append(val)
-
-        snap_h, snap_v = None, None
-        for value in snap_x:
-            if abs(x - value) < snap_threshold_scaled:
-                snap_h = value
-                break
-
-        for value in snap_x:
-            w = widget.logical_width * config["view-scale"]
-            if abs(w + x - value) < snap_threshold_scaled:
-                snap_h = value - w
-                break
-
-        for value in snap_y:
-            if abs(y - value) < snap_threshold_scaled:
-                snap_v = value
-                break
-
-        for value in snap_y:
-            h = widget.logical_height * config["view-scale"]
-            if abs(h + y - value) < snap_threshold_scaled:
-                snap_v = value - h
-                break
-
-        # Just in case ;)
-        if snap_h and snap_h < 0:
-            snap_h = 0
-
-        if snap_v and snap_v < 0:
-            snap_v = 0
-
-        if snap_h is None and snap_v is None:
-            fixed.move(widget, x, y)
-            widget.x = round(x / config["view-scale"])
-            widget.y = round(y / config["view-scale"])
-        else:
-
-            if snap_h is not None and snap_v is not None:
-                fixed.move(widget, snap_h, snap_v)
-                widget.x = round(snap_h / config["view-scale"])
-                widget.y = round(snap_v / config["view-scale"])
-
-            elif snap_h is not None:
-                fixed.move(widget, snap_h, y)
-                widget.x = round(snap_h / config["view-scale"])
-                widget.y = round(y / config["view-scale"])
-
-            elif snap_v is not None:
-                fixed.move(widget, x, snap_v)
-                widget.x = round(x / config["view-scale"])
-                widget.y = round(snap_v / config["view-scale"])
-
-    update_form_from_widget(widget)
-
-
-def update_form_from_widget(monitor_button: MonitorButton):
-    monitor = monitor_button.get_monitor()
-    form_name.set_text(monitor.get_name())
-    if len(monitor.get_model()) > 48:
-        form_description.set_text(f"{monitor.get_model()[:47]}(…)")
-    else:
-        form_description.set_text(monitor.get_model())
-    form_dpms.set_active(monitor.get_is_dpms_enabled())
-    form_adaptive_sync.set_active(monitor.get_is_adaptive_sync_enabled())
-    form_custom_mode.set_active(False)
-    form_view_scale.set_value(
-        config["view-scale"]
-    )  # not really from the widget, but from the global value
-    form_use_desc.set_active(config["use-desc"])
-    form_x.set_value(monitor.get_x())
-    form_y.set_value(monitor.get_y())
-    form_width.set_value(monitor.get_width())
-    form_height.set_value(monitor.get_height())
-    form_scale.set_value(monitor.get_scale())
-    # form_scale_filter.set_active_id(monitor.get_scale_filter())
-    form_refresh.set_value(monitor.get_refresh_rate())
-    if form_ten_bit:
-        form_ten_bit.set_active(monitor.get_is_ten_bit_enabled())
-    if form_mirror:
-        form_mirror.remove_all()
-        form_mirror.append("", vocabulary.get("none", "None"))
-        for key in outputs:
-            if key != monitor.name:
-                form_mirror.append(key, key)
-        form_mirror.set_active_id(str(monitor.get_is_mirror()))
-        form_mirror.show_all()
-
-    global on_mode_changed_silent
-    on_mode_changed_silent = True
-
-    form_modes.remove_all()
-    active = ""
-    for mode in monitor.get_modes():
-        m = "{}x{}@{}Hz".format(
-            # mode["width"],
-            # mode["height"],
-            # mode["refresh"] / 1000,
-            # mode["refresh"] / 1000,
-            # monitor.refresh,
-            mode.get_width(),
-            mode.get_height(),
-            mode.get_refresh_rate() / 1000,
-            mode.get_refresh_rate() / 1000,
-            monitor.get_refresh_rate(),
-        )
-        form_modes.append(m, m)
-        # This is just to set active_id
-
-        if (
-            mode.get_width() == monitor.get_width()
-            and mode.get_height() == monitor.get_height()
-            and mode.get_refresh_rate() / 1000 == monitor.get_refresh_rate()
-        ):
-            active = m
-    if active:
-        form_modes.set_active_id(active)
-
-    form_transform.set_active_id(str(monitor.get_transform()))
-
-    on_mode_changed_silent = False
+        # update_form_from_widget(widget)
 
 
 def on_view_scale_changed(*args):
@@ -522,66 +340,52 @@ def on_toggle_button(btn):
     GLib.timeout_add(1000, create_display_buttons)
 
 
-def create_display_buttons():
-    """
-    Rebuilds the rectangles that represent every display and puts them in the `Gtk.Fixed` canvas.
-    """
-    global monitor_buttons, outputs
+def create_display_buttons() -> None:
+    # clear old buttons
     for b in monitor_buttons:
         b.destroy()
-    monitor_buttons = []
+    monitor_buttons.clear()
 
-    monitors = list_outputs()
-    outputs = {}
-
-    for monitor_name, monitor in monitors.items():
-
-        custom_mode = monitor_name in config["custom-mode"]
-
-        btn = MonitorButton(monitor=monitor)
+    for mon in list_outputs().values():  # your helper
+        btn = DraggableMonitorButton(
+            monitor=mon,
+            canvas=fixed,
+            config=config,
+            after_move=lambda b, fv=form_view: fv.set_selected_monitor(b.get_monitor()),
+        )
+        btn.connect(
+            "button-press-event",
+            lambda _w, _e, fv=form_view, m=mon: fv.set_selected_monitor(m),
+        )
         monitor_buttons.append(btn)
         fixed.put(
             btn,
-            round(monitor.get_x() * config["view-scale"]),
-            round(monitor.get_y() * config["view-scale"]),
+            round(mon.get_x() * config["view-scale"]),
+            round(mon.get_y() * config["view-scale"]),
         )
 
-    # Select the first output by default
+    # hand the list to the form so it can build “mirror” options
+    form_view._buttons[:] = monitor_buttons
+
+    # select first
     if monitor_buttons:
-        monitor_buttons[0].select()
-        update_form_from_widget(monitor_buttons[0])
+        form_view.set_selected_monitor(monitor_buttons[0].get_monitor())
 
 
-class Indicator(Gtk.Window):
-    def __init__(self, monitor, name, width, height, timeout):
-        super().__init__()
-        self.timeout = timeout
-        self.monitor = monitor
-        self.set_property("name", "indicator")
+def rebuild_canvas_and_form() -> None:
+    """Refresh monitor list after an external change (e.g., enabling output)."""
+    monitors, buttons = create_display_buttons()
+    monitor_buttons[:] = buttons  # mutates in place
 
-        GtkLayerShell.init_for_window(self)
-        GtkLayerShell.set_layer(self, GtkLayerShell.Layer.OVERLAY)
-        if monitor:
-            GtkLayerShell.set_monitor(self, monitor)
+    # click → select
+    for b in buttons:
+        b.connect(
+            "clicked",
+            lambda btn, fv=form_view: fv.set_selected_monitor(btn.get_monitor()),
+        )
 
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self.add(box)
-        label = Gtk.Label()
-        box.set_property("name", "indicator-label")
-        label.set_text(name)
-        box.pack_start(label, True, True, 10)
-
-        self.set_size_request(width, height)
-        if self.timeout > 0:
-            self.show_up(self.timeout * 2)
-
-    def show_up(self, timeout=None):
-        if self.timeout > 0 and self.monitor:
-            self.show_all()
-            if timeout:
-                GLib.timeout_add(timeout, self.hide)
-            else:
-                GLib.timeout_add(self.timeout, self.hide)
+    if buttons:
+        form_view.set_selected_monitor(buttons[0].get_monitor())
 
 
 def handle_keyboard(window, event):
@@ -1018,12 +822,10 @@ def restore_old_settings(btn, backup, path):
 def main():
     GLib.set_prgname("nwg-displays")
 
-    parser = None
-
-    if is_sway_session:
+    if session_service.is_sway_session():
         parser = ArgumentParserFactory().create_for_sway(sway_config_dir)
 
-    elif is_hyprland_session:
+    elif session_service.is_hyprland_session():
         parser = ArgumentParserFactory().create_for_hyprland(hypr_config_dir)
 
     args = parser.parse_args()
@@ -1031,29 +833,28 @@ def main():
     vocabulary_service.load(dir_name)
 
     global outputs_path
-    if is_sway_session:
+    if session_service.is_sway_session():
         if os.path.isdir(sway_config_dir):
             outputs_path = args.outputs_path
         else:
             eprint("sway config directory not found!")
             outputs_path = ""
-    elif is_hyprland_session:
+    elif session_service.is_hyprland_session():
         if os.path.isdir(hypr_config_dir):
             outputs_path = args.monitors_path
         else:
-            eprint("Hyprland config directory not found!")
+            logger.error("Hyprland config directory not found!")
             outputs_path = ""
-
     global nr_workspaces_in_use
     nr_workspaces_in_use = args.num_ws
-    if is_sway_session:
+    if session_service.is_sway_session():
         print("Number of workspaces: {}".format(nr_workspaces_in_use))
 
     global config
 
     config = configuration_service.load_config()
 
-    eprint("Settings: {}".format(config))
+    logger.info("Settings: {}".format(config))
 
     global snap_threshold_scaled
     snap_threshold_scaled = config["snap-threshold"]
@@ -1105,25 +906,24 @@ def main():
     builder.get_object("lbl-zoom").set_label(
         "{}:".format(vocabulary.get("zoom", "Zoom"))
     )
-    global form_name
-    form_name = builder.get_object("name")
+    global fixed
+    fixed = builder.get_object("fixed")
+    global form_view
+    form_view = MonitorConfigurationFormView(
+        builder=builder,
+        monitor_buttons=monitor_buttons,
+        config=config,
+        vocabulary=vocabulary,
+        fixed_container=fixed,
+    )
 
-    global form_description
-    form_description = builder.get_object("description")
-
-    global form_dpms
-    form_dpms = builder.get_object("dpms")
-    form_dpms.set_tooltip_text(vocabulary.get("dpms-tooltip", "DPMS Configuration"))
-    form_dpms.connect("toggled", on_dpms_toggled)
     # if sway:
     #     form_dpms.set_tooltip_text(voc["dpms-tooltip"])
     #     form_dpms.connect("toggled", on_dpms_toggled)
     # else:
     #     form_dpms.set_sensitive(False)
 
-    global form_adaptive_sync
-    form_adaptive_sync = builder.get_object("adaptive-sync")
-    if is_sway_session:
+    """ if session_service.is_sway_session():
         form_adaptive_sync.set_label(vocabulary.get("adaptive-sync", "Adaptive sync"))
         form_adaptive_sync.set_tooltip_text(
             vocabulary.get(
@@ -1134,10 +934,10 @@ def main():
         form_adaptive_sync.connect("toggled", on_adaptive_sync_toggled)
     else:
         form_adaptive_sync.set_sensitive(False)
-
+ """
     global form_custom_mode
     form_custom_mode = builder.get_object("custom-mode")
-    if is_sway_session:
+    if session_service.is_sway_session():
         form_custom_mode.set_label(vocabulary.get("custom-mode", "Custom mode"))
         form_custom_mode.set_tooltip_text(
             vocabulary.get(
@@ -1149,47 +949,6 @@ def main():
     else:
         form_custom_mode.set_sensitive(False)
 
-    global form_view_scale
-    form_view_scale = builder.get_object("view-scale")
-    form_view_scale.set_tooltip_text(vocabulary.get("view-scale-tooltip", "Scale view"))
-    adj = Gtk.Adjustment(
-        lower=0.1, upper=0.6, step_increment=0.05, page_increment=0.1, page_size=0.1
-    )
-    form_view_scale.configure(adj, 1, 2)
-    form_view_scale.connect("changed", on_view_scale_changed)
-
-    global form_x
-    form_x = builder.get_object("x")
-    adj = Gtk.Adjustment(
-        lower=0, upper=60000, step_increment=1, page_increment=10, page_size=1
-    )
-    form_x.configure(adj, 1, 0)
-    form_x.connect("value-changed", on_pos_x_changed)
-
-    global form_y
-    form_y = builder.get_object("y")
-    adj = Gtk.Adjustment(
-        lower=0, upper=40000, step_increment=1, page_increment=10, page_size=1
-    )
-    form_y.configure(adj, 1, 0)
-    form_y.connect("value-changed", on_pos_y_changed)
-
-    global form_width
-    form_width = builder.get_object("width")
-    adj = Gtk.Adjustment(
-        lower=0, upper=7680, step_increment=1, page_increment=10, page_size=1
-    )
-    form_width.configure(adj, 1, 0)
-    form_width.connect("value-changed", on_width_changed)
-
-    global form_height
-    form_height = builder.get_object("height")
-    adj = Gtk.Adjustment(
-        lower=0, upper=4320, step_increment=1, page_increment=10, page_size=1
-    )
-    form_height.configure(adj, 1, 0)
-    form_height.connect("value-changed", on_height_changed)
-
     global form_scale
     form_scale = builder.get_object("scale")
     adj = Gtk.Adjustment(
@@ -1200,7 +959,7 @@ def main():
 
     global form_scale_filter
     form_scale_filter = builder.get_object("scale-filter")
-    if is_sway_session:
+    if session_service.is_sway_session():
         form_scale_filter.set_tooltip_text(vocabulary["scale-filter-tooltip"])
         form_scale_filter.connect("changed", on_scale_filter_changed)
     else:
@@ -1253,9 +1012,9 @@ def main():
         "{}".format(vocabulary.get("workspaces-tooltip", "Workspaces assignment"))
     )
 
-    if is_sway_session:
+    if session_service.is_sway_session():
         form_workspaces.connect("clicked", create_workspaces_window)
-    elif is_hyprland_session:
+    elif session_service.is_hyprland_session():
         form_workspaces.connect("clicked", create_workspaces_window_hypr)
 
     global form_close
@@ -1269,8 +1028,8 @@ def main():
     form_apply = builder.get_object("apply")
     form_apply.set_label(vocabulary.get("apply", "Apply"))
 
-    if (is_sway_session and sway_config_dir) or (
-        is_hyprland_session and hypr_config_dir
+    if (session_service.is_sway_session() and sway_config_dir) or (
+        session_service.is_hyprland_session() and hypr_config_dir
     ):
         form_apply.connect("clicked", on_apply_button)
     else:
@@ -1283,9 +1042,6 @@ def main():
 
     wrapper = builder.get_object("wrapper")
     wrapper.set_property("name", "wrapper")
-
-    global fixed
-    fixed = builder.get_object("fixed")
 
     create_display_buttons()
 
@@ -1302,7 +1058,7 @@ def main():
         form_wrapper_box.pack_start(cb, False, False, 3)
 
     btn = Gtk.Button.new_with_label(vocabulary.get("toggle", "Toggle"))
-    if is_sway_session:
+    if session_service.is_sway_session():
         btn.set_tooltip_text(
             vocabulary.get("toggle-tooltip", "Enables/disables outputs.")
         )
@@ -1311,7 +1067,7 @@ def main():
     else:
         btn.destroy()
 
-    if is_hyprland_session:
+    if session_service.is_hyprland_session():
         grid = builder.get_object("grid")
 
         global form_ten_bit
@@ -1353,7 +1109,6 @@ def main():
     )
 
     if monitor_buttons:
-        update_form_from_widget(monitor_buttons[0])
         monitor_buttons[0].select()
 
     screen = Gdk.Screen.get_default()

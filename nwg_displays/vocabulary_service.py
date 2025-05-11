@@ -9,11 +9,14 @@ class VocabularyService:
         self._vocabulary: Dict[str, str] = {}
         self._is_loaded = False
 
-    def load(self, vocabulary_dir_name: str) -> None:
+    def load(self, vocabulary_dir_name: str = None) -> None:
         """
         Load vocabulary from files, starting with English and then applying
         translations from the user's locale if available.
         """
+        if vocabulary_dir_name is None:
+            # Default to the current directory
+            vocabulary_dir_name = os.path.dirname(os.path.abspath(__file__))
         # Basic vocabulary (for en_US)
         base_voc = load_json(os.path.join(vocabulary_dir_name, "langs", "en_US.json"))
         if not base_voc:

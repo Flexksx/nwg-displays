@@ -1,18 +1,19 @@
 from nwg_displays.monitor.backend import MonitorBackend
 from nwg_displays.monitor.monitor import Monitor
-from nwg_displays.monitor.monitor_base_configuration import MonitorBaseConfiguration
+from nwg_displays.monitor.monitor_base_configuration import MonitorConfiguration
 from nwg_displays.monitor.monitor_mode import MonitorMode
+from gi.repository import Gdk
 
 
 class SwayMonitor(Monitor):
-    def __init__(self, config: MonitorBaseConfiguration, raw_data: dict = None):
+    def __init__(self, config: MonitorConfiguration, raw_data: dict = None):
         super().__init__()
         self.config = config
         self.raw_data = raw_data or {}
 
     @classmethod
     def from_sway_response(cls, data: dict) -> "SwayMonitor":
-        config = MonitorBaseConfiguration(
+        config = MonitorConfiguration(
             name=data["name"],
             make=data.get("make", ""),
             model=data.get("model", ""),
@@ -110,3 +111,21 @@ class SwayMonitor(Monitor):
 
     def get_modes(self):
         return []
+
+    def get_scale_filter(self):
+        raise NotImplementedError
+
+    def get_transform(self):
+        return self.config.transform
+
+    def get_is_mirror(self):
+        return self.config.is_mirror
+
+    def get_is_mirror_of(self):
+        return self.config.is_mirror_of
+
+    def get_gdk_monitor(self):
+        return self.config.gdk_monitor
+
+    def set_gdk_monitor(self, monitor: Gdk.Monitor):
+        self.config.gdk_monitor = monitor

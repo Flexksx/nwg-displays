@@ -1,11 +1,19 @@
 from argparse import ArgumentParser
 
 from nwg_displays.__about__ import __version__
+from nwg_displays.session.session_service import SessionService
 
 
 class ArgumentParserFactory:
     def __init__(self):
         pass
+
+    def create(self, config_directory: str) -> ArgumentParser:
+        session_server = SessionService()
+        if session_server.is_hyprland_session():
+            return self.create_for_hyprland(config_directory)
+        elif session_server.is_sway_session():
+            return self.create_for_sway(config_directory)
 
     def create_for_sway(self, config_directory: str) -> ArgumentParser:
         """

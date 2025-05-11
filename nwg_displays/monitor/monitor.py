@@ -1,128 +1,158 @@
-from abc import ABC, abstractmethod
-from typing import List, Tuple
-
+from typing import List, Optional, Tuple
+from gi.repository import Gdk, GObject
+from nwg_displays.monitor.backend import MonitorBackend
+from nwg_displays.monitor.monitor_base_configuration import MonitorConfiguration
 from nwg_displays.monitor.monitor_mode import MonitorMode
 from nwg_displays.monitor.monitor_transform_mode import MonitorTransformMode
 
 
-class Monitor(ABC):
-    """Base abstract class for monitor objects that provides an interface for getting monitor information and configurations."""
+class Monitor(GObject.GObject):
+    __gsignals__ = {
+        "property-changed": (GObject.SIGNAL_RUN_FIRST, None, (str, object)),
+    }
 
-    @abstractmethod
-    def get_name(self) -> str:
-        """Get the name of the monitor."""
-        pass
+    def __init__(
+        self,
+        config: MonitorConfiguration,
+    ):
+        super().__init__()
+        self.__config = config
+        self.__selected_mode = self.__config.modes[0] if self.__config.modes else None
 
-    @abstractmethod
-    def get_make(self) -> str:
-        """Get the make of the monitor."""
-        pass
-
-    @abstractmethod
-    def get_model(self) -> str:
-        """Get the model of the monitor."""
-        pass
-
-    @abstractmethod
-    def get_serial(self) -> str:
-        """Get the serial number of the monitor."""
-        pass
-
-    @abstractmethod
-    def get_is_active(self) -> bool:
-        """Get whether the monitor is active."""
-        pass
-
-    @abstractmethod
-    def get_scale(self) -> float:
-        """Get the scale of the monitor."""
-        pass
-
-    @abstractmethod
-    def get_scale_filter(self) -> str:
-        """Get the scale filter of the monitor."""
-        pass
-
-    @abstractmethod
-    def get_x(self) -> int:
-        """Get the horizontal coordinate of the monitor."""
-        pass
-
-    @abstractmethod
-    def get_y(self) -> int:
-        """Get the vertical coordinate of the monitor."""
-        pass
-
-    @abstractmethod
-    def get_width(self) -> int:
-        """Get the width of the monitor."""
-        pass
-
-    @abstractmethod
-    def get_height(self) -> int:
-        """Get the height of the monitor."""
-        pass
-
-    @abstractmethod
-    def get_size(self) -> Tuple[int, int]:
-        pass
-
-    @abstractmethod
-    def get_refresh_rate(self) -> float:
-        """Get the refresh rate of the monitor."""
-        pass
-
-    @abstractmethod
-    def get_is_adaptive_sync_enabled(self) -> bool:
-        """Get whether the monitor has enabled adaptive sync."""
-        pass
-
-    @abstractmethod
-    def get_is_dpms_enabled(self) -> bool:
-        """Get whether the monitor has DPMS enabled."""
-        pass
-
-    @abstractmethod
-    def get_is_ten_bit_enabled(self) -> bool:
-        """Get whether ten bit is enabled"""
-        pass
-
-    @abstractmethod
-    def get_backend(self) -> str:
-        """Get backend the monitor is connected with"""
-        pass
-
-    @abstractmethod
     def to_config_string(self) -> str:
-        """Get the configuration string for the monitor."""
-        pass
+        """Convert the monitor config to a string format."""
+        raise NotImplementedError("Subclasses of `Monitor` must implement this method.")
 
-    @abstractmethod
-    def is_mirror_of(self, other: "Monitor") -> None:
-        """Mirror the monitor with another monitor."""
-        pass
+    def _emit_change(self, field: str, value):
+        """Internal: broadcast that a field changed."""
+        self.emit("property-changed", field, value)
 
-    @abstractmethod
-    def is_mirror(self) -> bool:
-        """Check if the monitor is a mirror."""
-        pass
+    def get_name(self) -> str:
+        return self.__config.name
 
-    @abstractmethod
+    def get_make(self) -> str:
+        return self.__config.make
+
+    def get_model(self) -> str:
+        return self.__config.model
+
+    def get_serial(self) -> str:
+        return self.__config.serial
+
+    def get_is_active(self) -> bool:
+        return self.__config.is_active
+
+    def get_scale(self) -> float:
+        return self.__config.scale
+
+    def get_x(self) -> int:
+        return self.__config.x
+
+    def get_y(self) -> int:
+        return self.__config.y
+
+    def get_width(self) -> int:
+        return self.__config.physical_width
+
+    def get_height(self) -> int:
+        return self.__config.physical_height
+
+    def get_size(self) -> Tuple[int, int]:
+        return (self.get_width(), self.get_height())
+
+    def get_refresh_rate(self) -> float:
+        return self.__config.refresh_rate
+
+    def get_is_adaptive_sync_enabled(self) -> bool:
+        return self.__config.is_adaptive_sync_enabled
+
+    def get_is_dpms_enabled(self) -> bool:
+        return self.__config.is_dpms_enabled
+
+    def get_is_ten_bit_enabled(self) -> bool:
+        return self.__config.is_ten_bit_enabled
+
+    def get_backend(self) -> MonitorBackend:
+        return self.__config.backend
+
     def get_modes(self) -> List[MonitorMode]:
-        """Get the modes of the monitor."""
-        pass
+        return self.__config.modes
 
-    @abstractmethod
     def get_transform(self) -> MonitorTransformMode:
-        """Get the transform of the monitor."""
-        pass
+        return self.__config.transform
 
-    @abstractmethod
     def get_is_mirror(self) -> bool:
-        """Get whether the monitor is a mirror."""
-        pass
+        return self.__config.is_mirror
 
-    @abstractmethod
-    def get_is_mirror_of(self) -> str | None:
-        """Get the name of the monitor it is mirroring."""
-        pass
+    def get_is_mirror_of(self) -> Optional[str]:
+        return self.__config.is_mirror_of
+
+    def get_gdk_monitor(self) -> Optional[Gdk.Monitor]:
+        return self.__config.gdk_monitor
+
+    def get_scale_filter(self) -> str:
+        return getattr(self.__config, "scale_filter", "nearest")
+
+    def get_selected_mode(self) -> Optional[MonitorMode]:
+        return self.__selected_mode
+
+    def set_x(self, value: int):
+        if value != self.__config.x:
+            self.__config.x = value
+            self._emit_change("x", value)
+
+    def set_y(self, value: int):
+        if value != self.__config.y:
+            self.__config.y = value
+            self._emit_change("y", value)
+
+    def set_width(self, value: int):
+        if value != self.__config.physical_width:
+            self.__config.physical_width = value
+            self._emit_change("width", value)
+
+    def set_height(self, value: int):
+        if value != self.__config.physical_height:
+            self.__config.physical_height = value
+            self._emit_change("height", value)
+
+    def set_scale(self, value: float):
+        if value != self.__config.scale:
+            self.__config.scale = value
+            self._emit_change("scale", value)
+
+    def set_refresh_rate(self, value: float):
+        if value != self.__config.refresh_rate:
+            self.__config.refresh_rate = value
+            self._emit_change("refresh_rate", value)
+
+    def set_is_adaptive_sync_enabled(self, value: bool):
+        if value != self.__config.is_adaptive_sync_enabled:
+            self.__config.is_adaptive_sync_enabled = value
+            self._emit_change("adaptive_sync", value)
+
+    def set_is_dpms_enabled(self, value: bool):
+        if value != self.__config.is_dpms_enabled:
+            self.__config.is_dpms_enabled = value
+            self._emit_change("dpms", value)
+
+    def set_is_ten_bit_enabled(self, value: bool):
+        if value != self.__config.is_ten_bit_enabled:
+            self.__config.is_ten_bit_enabled = value
+            self._emit_change("ten_bit", value)
+
+    def set_transform(self, value: MonitorTransformMode):
+        if value != self.__config.transform:
+            self.__config.transform = value
+            self._emit_change("transform", value)
+
+    def set_gdk_monitor(self, monitor: Gdk.Monitor):
+        if monitor != self.__config.gdk_monitor:
+            self.__config.gdk_monitor = monitor
+            self._emit_change("gdk_monitor", monitor)
+
+    def set_mirror(self, target_name: Optional[str]):
+        """Hyprland-specific helper: make this display a mirror of *target* or clear."""
+        self.__config.is_mirror_of = target_name
+        self.__config.is_mirror = target_name is not None
+        self._emit_change("mirror", target_name)
