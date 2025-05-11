@@ -13,6 +13,7 @@ from nwg_displays.monitor.monitor_mode import MonitorMode
 from nwg_displays.session.session_service import SessionService
 
 session_service = SessionService()
+DEFAULT_VIEW_SCALE = 0.15
 
 
 class MonitorConfigurationFormView:
@@ -63,7 +64,6 @@ class MonitorConfigurationFormView:
             glade_name="description",
             tooltip=v.get("description-tooltip", "Monitor description"),
         )
-
         self.dpms = BooleanForm(
             builder=b,
             glade_name="dpms",
@@ -98,16 +98,22 @@ class MonitorConfigurationFormView:
             ),
         )
 
-        self.x = self._adj("x", 0, 60000, self._num("x"))
-        self.y = self._adj("y", 0, 40000, self._num("y"))
-        self.w = self._adj("width", 0, 7680, self._num("width"))
-        self.h = self._adj("height", 0, 4320, self._num("height"))
-        self.scale = self._adj("scale", 0.1, 10.0, self._float("scale"))
-        self.refresh = self._adj("refresh", 1, 1200, self._float("refresh"))
+        self.x = self._adj("x", 0, 60000, self._num("x"), digits=0)
+        self.y = self._adj("y", 0, 40000, self._num("y"), digits=0)
+        self.w = self._adj("width", 0, 7680, self._num("width"), digits=0)
+        self.h = self._adj("height", 0, 4320, self._num("height"), digits=0)
+        self.scale = self._adj("scale", 0.1, 10.0, self._float("scale"), digits=2)
+        self.refresh = self._adj("refresh", 1, 1200, self._float("refresh"), digits=2)
         self.view_scale = self._adj(
-            "view-scale", 0.1, 0.6, self._on_view_scale, step=0.05
+            "view-scale", 0.1, 0.6, self._on_view_scale, step=0.05, digits=2
         )
-        self.view_scale.set_value(self._config.get("view-scale", 0.15))
+        init_view_scale = self._config.get("view-scale", DEFAULT_VIEW_SCALE)
+        if init_view_scale == 0:
+            init_view_scale = DEFAULT_VIEW_SCALE
+        self.view_scale.set_value(init_view_scale)
+        logger.debug(
+            f"MonitorConfigurationFormView: view_scale={self.view_scale.get_value()}"
+        )
 
         self.scale_filter: Gtk.ComboBox = b.get_object("scale-filter")
         self.scale_filter.connect("changed", self._on_scale_filter)
@@ -161,7 +167,6 @@ class MonitorConfigurationFormView:
             page_increment=page,
             page_size=1,
             climb_rate=step,
-            page_step=page,
             digits=digits,
         )
 

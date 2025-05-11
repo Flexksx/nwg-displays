@@ -16,7 +16,6 @@ class AdjustmentForm(BaseForm):
         page_increment: int | float = None,
         page_size: int = None,
         climb_rate: int | float = None,
-        page_step: int | float = None,
         digits: int = 2,
     ):
         super().__init__(
@@ -35,7 +34,7 @@ class AdjustmentForm(BaseForm):
                 page_size=page_size,
             ),
             climb_rate,
-            page_step,
+            digits,
         )
 
     def get_value(self) -> int | float:

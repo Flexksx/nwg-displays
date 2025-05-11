@@ -216,97 +216,9 @@ def on_transform_changed(*args):
         selected_output_button.rescale_transform()
 
 
-def on_ten_bit_toggled(check_btn):
-    if selected_output_button:
-        selected_output_button.ten_bit = check_btn.get_active()
-
-
-def on_dpms_toggled(widget):
-    if selected_output_button:
-        selected_output_button.dpms = widget.get_active()
-
-
 def on_use_desc_toggled(widget):
     config["use-desc"] = widget.get_active()
     save_json(config, os.path.join(config_dir, "config"))
-
-
-def on_adaptive_sync_toggled(widget):
-    if selected_output_button:
-        selected_output_button.adaptive_sync = widget.get_active()
-
-
-def on_custom_mode_toggle(widget):
-    if selected_output_button:
-        outputs = set(config["custom-mode"])
-        turned_on = widget.get_active()
-        selected_output_button.custom_mode = turned_on
-        if turned_on:
-            outputs.add(selected_output_button.name)
-        else:
-            outputs.discard(selected_output_button.name)
-        config["custom-mode"] = tuple(outputs)
-
-
-def on_pos_x_changed(widget):
-    if selected_output_button:
-        selected_output_button.x = round(widget.get_value())
-        fixed.move(
-            selected_output_button,
-            selected_output_button.x * config["view-scale"],
-            selected_output_button.y * config["view-scale"],
-        )
-
-
-def on_pos_y_changed(widget):
-    if selected_output_button:
-        selected_output_button.y = round(widget.get_value())
-        fixed.move(
-            selected_output_button,
-            selected_output_button.x * config["view-scale"],
-            selected_output_button.y * config["view-scale"],
-        )
-
-
-def on_width_changed(widget):
-    if selected_output_button:
-        selected_output_button.physical_width = round(widget.get_value())
-        selected_output_button.rescale_transform()
-
-
-def on_height_changed(widget):
-    if selected_output_button:
-        selected_output_button.physical_height = round(widget.get_value())
-        selected_output_button.rescale_transform()
-
-
-def on_scale_changed(widget):
-    if selected_output_button:
-        selected_output_button.scale = widget.get_value()
-        selected_output_button.rescale_transform()
-
-
-def on_scale_filter_changed(widget):
-    if selected_output_button:
-        selected_output_button.scale_filter = widget.get_active_id()
-
-
-def on_refresh_changed(widget):
-    if selected_output_button:
-        selected_output_button.refresh = widget.get_value()
-
-        update_form_from_widget(selected_output_button)
-
-
-def on_mode_changed(widget):
-    if selected_output_button and not on_mode_changed_silent:
-        mode = selected_output_button.modes[widget.get_active()]
-        selected_output_button.physical_width = mode["width"]
-        selected_output_button.physical_height = mode["height"]
-        selected_output_button.refresh = mode["refresh"] / 1000
-        selected_output_button.rescale_transform()
-
-        update_form_from_widget(selected_output_button)
 
 
 def on_mirror_selected(widget):
@@ -949,14 +861,6 @@ def main():
     else:
         form_custom_mode.set_sensitive(False)
 
-    global form_scale
-    form_scale = builder.get_object("scale")
-    adj = Gtk.Adjustment(
-        lower=0.1, upper=10, step_increment=0.1, page_increment=10, page_size=1
-    )
-    form_scale.configure(adj, 0.1, 6)
-    form_scale.connect("value-changed", on_scale_changed)
-
     global form_scale_filter
     form_scale_filter = builder.get_object("scale-filter")
     if session_service.is_sway_session():
@@ -965,20 +869,12 @@ def main():
     else:
         form_scale_filter.set_sensitive(False)
 
-    global form_refresh
-    form_refresh = builder.get_object("refresh")
-    adj = Gtk.Adjustment(
-        lower=1, upper=1200, step_increment=1, page_increment=10, page_size=1
-    )
-    form_refresh.configure(adj, 1, 3)
-    form_refresh.connect("changed", on_refresh_changed)
-
     global form_modes
     form_modes = builder.get_object("modes")
     form_modes.set_tooltip_text(
         vocabulary.get("modes-tooltip", "Available display modes")
     )
-    form_modes.connect("changed", on_mode_changed)
+    # form_modes.connect("changed", on_mode_changed)
 
     global form_use_desc
     form_use_desc = builder.get_object("use-desc")
@@ -1079,7 +975,7 @@ def main():
                 "10-bit-support-tooltip", "Enables support for 10-bit color depth."
             )
         )
-        form_ten_bit.connect("toggled", on_ten_bit_toggled)
+        # form_ten_bit.connect("toggled", on_ten_bit_toggled)
         grid.attach(form_ten_bit, 5, 4, 1, 1)
 
         lbl = Gtk.Label.new("Mirror:")

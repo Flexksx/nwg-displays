@@ -4358,3 +4358,89 @@
 2025-05-12 00:12:44,220 - nwg-displays - INFO - Running on Hyprland
 2025-05-12 00:12:44,221 - nwg-displays - DEBUG - Gdk monitors: [<__gi__.GdkWaylandMonitor object at 0x7f933d22e400 (GdkWaylandMonitor at 0xc736c00)>, <__gi__.GdkWaylandMonitor object at 0x7f9338c61e40 (GdkWaylandMonitor at 0xc719a50)>, <__gi__.GdkWaylandMonitor object at 0x7f9338c62080 (GdkWaylandMonitor at 0xc736e80)>]
 2025-05-12 00:12:44,221 - nwg-displays - DEBUG - Got monitors: [(HyprlandMonitor eDP-1, (x:4000 y:2979), mode 3840x2400@60.0, scale 2.0, 1 modes, transform Normal), (HyprlandMonitor DP-2, (x:1440 y:1871), mode 2560x1440@155.0, scale 1.0, 43 modes, transform Normal), (HyprlandMonitor HDMI-A-1, (x:0 y:1457), mode 2560x1440@143.97, scale 1.0, 39 modes, transform Rotate 90)]
+2025-05-12 00:18:55,828 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: monitors.conf
+2025-05-12 00:18:55,829 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: workspaces.conf
+2025-05-12 00:18:55,830 - nwg-displays - INFO - Settings: {'view-scale': 0.2, 'snap-threshold': 10, 'indicator-timeout': 500, 'custom-mode': [], 'use-desc': False, 'confirm-timeout': 10}
+2025-05-12 00:18:55,941 - nwg-displays - INFO - Running on Hyprland
+2025-05-12 00:18:55,941 - nwg-displays - DEBUG - Gdk monitors: [<__gi__.GdkWaylandMonitor object at 0x7f6e5d3ebf80 (GdkWaylandMonitor at 0x78a0270)>, <__gi__.GdkWaylandMonitor object at 0x7f6e5d3f8040 (GdkWaylandMonitor at 0x7887e40)>, <__gi__.GdkWaylandMonitor object at 0x7f6e5d3f8080 (GdkWaylandMonitor at 0x78a4f20)>]
+2025-05-12 00:18:55,942 - nwg-displays - DEBUG - Got monitors: [(HyprlandMonitor eDP-1, (x:4000 y:2979), mode 3840x2400@60.0, scale 2.0, 1 modes, transform Normal), (HyprlandMonitor DP-2, (x:1440 y:1871), mode 2560x1440@155.0, scale 1.0, 43 modes, transform Normal), (HyprlandMonitor HDMI-A-1, (x:0 y:1457), mode 2560x1440@143.97, scale 1.0, 39 modes, transform Rotate 90)]
+2025-05-12 00:20:10,185 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: monitors.conf
+2025-05-12 00:20:10,186 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: workspaces.conf
+2025-05-12 00:20:10,187 - nwg-displays - INFO - Settings: {'view-scale': 0.2, 'snap-threshold': 10, 'indicator-timeout': 500, 'custom-mode': [], 'use-desc': False, 'confirm-timeout': 10}
+2025-05-12 00:20:26,305 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: monitors.conf
+2025-05-12 00:20:26,305 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: workspaces.conf
+2025-05-12 00:20:26,306 - nwg-displays - INFO - Settings: {'view-scale': 0.2, 'snap-threshold': 10, 'indicator-timeout': 500, 'custom-mode': [], 'use-desc': False, 'confirm-timeout': 10}
+2025-05-12 00:20:26,423 - nwg-displays - INFO - Running on Hyprland
+2025-05-12 00:20:26,424 - nwg-displays - DEBUG - Gdk monitors: [<__gi__.GdkWaylandMonitor object at 0x7f20d6772400 (GdkWaylandMonitor at 0xfc2ca50)>, <__gi__.GdkWaylandMonitor object at 0x7f20d6772480 (GdkWaylandMonitor at 0xfc2d7a0)>, <__gi__.GdkWaylandMonitor object at 0x7f20d67724c0 (GdkWaylandMonitor at 0xfc2d940)>]
+2025-05-12 00:20:26,425 - nwg-displays - DEBUG - Got monitors: [(HyprlandMonitor eDP-1, (x:4000 y:2979), mode 3840x2400@60.0, scale 2.0, 1 modes, transform Normal), (HyprlandMonitor DP-2, (x:1440 y:1871), mode 2560x1440@155.0, scale 1.0, 43 modes, transform Normal), (HyprlandMonitor HDMI-A-1, (x:0 y:1457), mode 2560x1440@143.97, scale 1.0, 39 modes, transform Rotate 90)]
+2025-05-12 00:20:59,504 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: monitors.conf
+2025-05-12 00:20:59,504 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: workspaces.conf
+2025-05-12 00:20:59,505 - nwg-displays - INFO - Settings: {'view-scale': 0.1, 'snap-threshold': 10, 'indicator-timeout': 500, 'custom-mode': [], 'use-desc': False, 'confirm-timeout': 10}
+2025-05-12 00:20:59,622 - nwg-displays - INFO - Running on Hyprland
+2025-05-12 00:20:59,624 - nwg-displays - DEBUG - Gdk monitors: [<__gi__.GdkWaylandMonitor object at 0x7fb2cef24100 (GdkWaylandMonitor at 0x3cda4970)>, <__gi__.GdkWaylandMonitor object at 0x7fb2cef24180 (GdkWaylandMonitor at 0x3cda4a10)>, <__gi__.GdkWaylandMonitor object at 0x7fb2cef241c0 (GdkWaylandMonitor at 0x3cda6140)>]
+2025-05-12 00:20:59,624 - nwg-displays - DEBUG - Got monitors: [(HyprlandMonitor eDP-1, (x:4000 y:2979), mode 3840x2400@60.0, scale 2.0, 1 modes, transform Normal), (HyprlandMonitor DP-2, (x:1440 y:1871), mode 2560x1440@155.0, scale 1.0, 43 modes, transform Normal), (HyprlandMonitor HDMI-A-1, (x:0 y:1457), mode 2560x1440@143.97, scale 1.0, 39 modes, transform Rotate 90)]
+2025-05-12 00:25:01,773 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: monitors.conf
+2025-05-12 00:25:01,773 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: workspaces.conf
+2025-05-12 00:25:01,774 - nwg-displays - INFO - Settings: {'view-scale': 0.1, 'snap-threshold': 10, 'indicator-timeout': 500, 'custom-mode': [], 'use-desc': False, 'confirm-timeout': 10}
+2025-05-12 00:25:01,885 - nwg-displays - INFO - Running on Hyprland
+2025-05-12 00:25:01,886 - nwg-displays - DEBUG - Gdk monitors: [<__gi__.GdkWaylandMonitor object at 0x7fd76e63f8c0 (GdkWaylandMonitor at 0x528a2a0)>, <__gi__.GdkWaylandMonitor object at 0x7fd76e63f940 (GdkWaylandMonitor at 0x52a61b0)>, <__gi__.GdkWaylandMonitor object at 0x7fd76e63f980 (GdkWaylandMonitor at 0x52a6330)>]
+2025-05-12 00:25:01,886 - nwg-displays - DEBUG - Got monitors: [(HyprlandMonitor eDP-1, (x:4000 y:2979), mode 3840x2400@60.0, scale 2.0, 1 modes, transform Normal), (HyprlandMonitor DP-2, (x:1440 y:1871), mode 2560x1440@155.0, scale 1.0, 43 modes, transform Normal), (HyprlandMonitor HDMI-A-1, (x:0 y:1457), mode 2560x1440@143.97, scale 1.0, 39 modes, transform Rotate 90)]
+2025-05-12 00:26:23,442 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: monitors.conf
+2025-05-12 00:26:23,443 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: workspaces.conf
+2025-05-12 00:26:23,443 - nwg-displays - INFO - Settings: {'view-scale': 0.1, 'snap-threshold': 10, 'indicator-timeout': 500, 'custom-mode': [], 'use-desc': False, 'confirm-timeout': 10}
+2025-05-12 00:26:23,554 - nwg-displays - INFO - Running on Hyprland
+2025-05-12 00:26:23,555 - nwg-displays - DEBUG - Gdk monitors: [<__gi__.GdkWaylandMonitor object at 0x7f717119a880 (GdkWaylandMonitor at 0x36d37410)>, <__gi__.GdkWaylandMonitor object at 0x7f717119a900 (GdkWaylandMonitor at 0x36d209f0)>, <__gi__.GdkWaylandMonitor object at 0x7f717119a940 (GdkWaylandMonitor at 0x36d3d6e0)>]
+2025-05-12 00:26:23,556 - nwg-displays - DEBUG - Got monitors: [(HyprlandMonitor eDP-1, (x:4000 y:2979), mode 3840x2400@60.0, scale 2.0, 1 modes, transform Normal), (HyprlandMonitor DP-2, (x:1440 y:1871), mode 2560x1440@155.0, scale 1.0, 43 modes, transform Normal), (HyprlandMonitor HDMI-A-1, (x:0 y:1457), mode 2560x1440@143.97, scale 1.0, 39 modes, transform Rotate 90)]
+2025-05-12 00:26:50,391 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: monitors.conf
+2025-05-12 00:26:50,391 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: workspaces.conf
+2025-05-12 00:26:50,392 - nwg-displays - INFO - Settings: {'view-scale': 0.1, 'snap-threshold': 10, 'indicator-timeout': 500, 'custom-mode': [], 'use-desc': False, 'confirm-timeout': 10}
+2025-05-12 00:27:27,831 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: monitors.conf
+2025-05-12 00:27:27,831 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: workspaces.conf
+2025-05-12 00:27:27,832 - nwg-displays - INFO - Settings: {'view-scale': 0.1, 'snap-threshold': 10, 'indicator-timeout': 500, 'custom-mode': [], 'use-desc': False, 'confirm-timeout': 10}
+2025-05-12 00:27:36,777 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: monitors.conf
+2025-05-12 00:27:36,778 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: workspaces.conf
+2025-05-12 00:27:36,779 - nwg-displays - INFO - Settings: {'view-scale': 0.1, 'snap-threshold': 10, 'indicator-timeout': 500, 'custom-mode': [], 'use-desc': False, 'confirm-timeout': 10}
+2025-05-12 00:27:36,900 - nwg-displays - INFO - Running on Hyprland
+2025-05-12 00:27:36,901 - nwg-displays - DEBUG - Gdk monitors: [<__gi__.GdkWaylandMonitor object at 0x7f221fd2a180 (GdkWaylandMonitor at 0x2fc5b270)>, <__gi__.GdkWaylandMonitor object at 0x7f221fd3a280 (GdkWaylandMonitor at 0x2fc44e10)>, <__gi__.GdkWaylandMonitor object at 0x7f221fd3a500 (GdkWaylandMonitor at 0x2fc62080)>]
+2025-05-12 00:27:36,902 - nwg-displays - DEBUG - Got monitors: [(HyprlandMonitor eDP-1, (x:4000 y:2979), mode 3840x2400@60.0, scale 2.0, 1 modes, transform Normal), (HyprlandMonitor DP-2, (x:1440 y:1871), mode 2560x1440@155.0, scale 1.0, 43 modes, transform Normal), (HyprlandMonitor HDMI-A-1, (x:0 y:1457), mode 2560x1440@143.97, scale 1.0, 39 modes, transform Rotate 90)]
+2025-05-12 00:29:12,135 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: monitors.conf
+2025-05-12 00:29:12,135 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: workspaces.conf
+2025-05-12 00:29:12,137 - nwg-displays - INFO - Settings: {'view-scale': 0.1, 'snap-threshold': 10, 'indicator-timeout': 500, 'custom-mode': [], 'use-desc': False, 'confirm-timeout': 10}
+2025-05-12 00:29:12,268 - nwg-displays - INFO - Running on Hyprland
+2025-05-12 00:29:12,270 - nwg-displays - DEBUG - Gdk monitors: [<__gi__.GdkWaylandMonitor object at 0x7f46a50bf8c0 (GdkWaylandMonitor at 0x1768b360)>, <__gi__.GdkWaylandMonitor object at 0x7f46a50bf940 (GdkWaylandMonitor at 0x176a7d90)>, <__gi__.GdkWaylandMonitor object at 0x7f46a50bf980 (GdkWaylandMonitor at 0x176a8070)>]
+2025-05-12 00:29:12,270 - nwg-displays - DEBUG - Got monitors: [(HyprlandMonitor eDP-1, (x:4000 y:2979), mode 3840x2400@60.0, scale 2.0, 1 modes, transform Normal), (HyprlandMonitor DP-2, (x:1440 y:1871), mode 2560x1440@155.0, scale 1.0, 43 modes, transform Normal), (HyprlandMonitor HDMI-A-1, (x:0 y:1457), mode 2560x1440@143.97, scale 1.0, 39 modes, transform Rotate 90)]
+2025-05-12 00:29:29,528 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: monitors.conf
+2025-05-12 00:29:29,528 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: workspaces.conf
+2025-05-12 00:29:29,529 - nwg-displays - INFO - Settings: {'view-scale': 0.1, 'snap-threshold': 10, 'indicator-timeout': 500, 'custom-mode': [], 'use-desc': False, 'confirm-timeout': 10}
+2025-05-12 00:29:29,644 - nwg-displays - DEBUG - MonitorConfigurationFormView: view_scale=0.0
+2025-05-12 00:29:29,646 - nwg-displays - INFO - Running on Hyprland
+2025-05-12 00:29:29,647 - nwg-displays - DEBUG - Gdk monitors: [<__gi__.GdkWaylandMonitor object at 0x7f48e92aa580 (GdkWaylandMonitor at 0x23116280)>, <__gi__.GdkWaylandMonitor object at 0x7f48e92aa600 (GdkWaylandMonitor at 0x230f9d70)>, <__gi__.GdkWaylandMonitor object at 0x7f48e92aa640 (GdkWaylandMonitor at 0x231171b0)>]
+2025-05-12 00:29:29,648 - nwg-displays - DEBUG - Got monitors: [(HyprlandMonitor eDP-1, (x:4000 y:2979), mode 3840x2400@60.0, scale 2.0, 1 modes, transform Normal), (HyprlandMonitor DP-2, (x:1440 y:1871), mode 2560x1440@155.0, scale 1.0, 43 modes, transform Normal), (HyprlandMonitor HDMI-A-1, (x:0 y:1457), mode 2560x1440@143.97, scale 1.0, 39 modes, transform Rotate 90)]
+2025-05-12 00:30:27,534 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: monitors.conf
+2025-05-12 00:30:27,534 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: workspaces.conf
+2025-05-12 00:30:27,535 - nwg-displays - INFO - Settings: {'view-scale': 0.1, 'snap-threshold': 10, 'indicator-timeout': 500, 'custom-mode': [], 'use-desc': False, 'confirm-timeout': 10}
+2025-05-12 00:30:27,647 - nwg-displays - DEBUG - MonitorConfigurationFormView: view_scale=0.1
+2025-05-12 00:30:27,649 - nwg-displays - INFO - Running on Hyprland
+2025-05-12 00:30:27,650 - nwg-displays - DEBUG - Gdk monitors: [<__gi__.GdkWaylandMonitor object at 0x7ff1bf536780 (GdkWaylandMonitor at 0x1445e4f0)>, <__gi__.GdkWaylandMonitor object at 0x7ff1bf536800 (GdkWaylandMonitor at 0x1447b2f0)>, <__gi__.GdkWaylandMonitor object at 0x7ff1bf536840 (GdkWaylandMonitor at 0x1447b500)>]
+2025-05-12 00:30:27,650 - nwg-displays - DEBUG - Got monitors: [(HyprlandMonitor eDP-1, (x:4000 y:2979), mode 3840x2400@60.0, scale 2.0, 1 modes, transform Normal), (HyprlandMonitor DP-2, (x:1440 y:1871), mode 2560x1440@155.0, scale 1.0, 43 modes, transform Normal), (HyprlandMonitor HDMI-A-1, (x:0 y:1457), mode 2560x1440@143.97, scale 1.0, 39 modes, transform Rotate 90)]
+2025-05-12 00:30:46,866 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: monitors.conf
+2025-05-12 00:30:46,866 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: workspaces.conf
+2025-05-12 00:30:46,867 - nwg-displays - INFO - Settings: {'view-scale': 0.1, 'snap-threshold': 10, 'indicator-timeout': 500, 'custom-mode': [], 'use-desc': False, 'confirm-timeout': 10}
+2025-05-12 00:30:46,980 - nwg-displays - DEBUG - MonitorConfigurationFormView: view_scale=0.1
+2025-05-12 00:30:46,982 - nwg-displays - INFO - Running on Hyprland
+2025-05-12 00:30:46,983 - nwg-displays - DEBUG - Gdk monitors: [<__gi__.GdkWaylandMonitor object at 0x7f9f70900440 (GdkWaylandMonitor at 0x1b9966f0)>, <__gi__.GdkWaylandMonitor object at 0x7f9f709004c0 (GdkWaylandMonitor at 0x1b9b2eb0)>, <__gi__.GdkWaylandMonitor object at 0x7f9f70900500 (GdkWaylandMonitor at 0x1b9b30c0)>]
+2025-05-12 00:30:46,983 - nwg-displays - DEBUG - Got monitors: [(HyprlandMonitor eDP-1, (x:4000 y:2979), mode 3840x2400@60.0, scale 2.0, 1 modes, transform Normal), (HyprlandMonitor DP-2, (x:1440 y:1871), mode 2560x1440@155.0, scale 1.0, 43 modes, transform Normal), (HyprlandMonitor HDMI-A-1, (x:0 y:1457), mode 2560x1440@143.97, scale 1.0, 39 modes, transform Rotate 90)]
+2025-05-12 00:32:42,365 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: monitors.conf
+2025-05-12 00:32:42,365 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: workspaces.conf
+2025-05-12 00:32:42,366 - nwg-displays - INFO - Settings: {'view-scale': 0.1, 'snap-threshold': 10, 'indicator-timeout': 500, 'custom-mode': [], 'use-desc': False, 'confirm-timeout': 10}
+2025-05-12 00:32:42,476 - nwg-displays - DEBUG - MonitorConfigurationFormView: view_scale=0.1
+2025-05-12 00:32:42,478 - nwg-displays - INFO - Running on Hyprland
+2025-05-12 00:32:42,479 - nwg-displays - DEBUG - Gdk monitors: [<__gi__.GdkWaylandMonitor object at 0x7f6176f7b240 (GdkWaylandMonitor at 0x1812eca0)>, <__gi__.GdkWaylandMonitor object at 0x7f616699ec00 (GdkWaylandMonitor at 0x1803c0a0)>, <__gi__.GdkWaylandMonitor object at 0x7f616699ec80 (GdkWaylandMonitor at 0x181307a0)>]
+2025-05-12 00:32:42,479 - nwg-displays - DEBUG - Got monitors: [(HyprlandMonitor eDP-1, (x:4000 y:2979), mode 3840x2400@60.0, scale 2.0, 1 modes, transform Normal), (HyprlandMonitor DP-2, (x:1440 y:1871), mode 2560x1440@155.0, scale 1.0, 43 modes, transform Normal), (HyprlandMonitor HDMI-A-1, (x:0 y:1457), mode 2560x1440@143.97, scale 1.0, 39 modes, transform Rotate 90)]
+2025-05-12 00:32:53,023 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: monitors.conf
+2025-05-12 00:32:53,023 - nwg-displays - DEBUG - Creating empty file in Hyprland config directory: workspaces.conf
+2025-05-12 00:32:53,024 - nwg-displays - INFO - Settings: {'view-scale': 0.1, 'snap-threshold': 10, 'indicator-timeout': 500, 'custom-mode': [], 'use-desc': False, 'confirm-timeout': 10}
+2025-05-12 00:32:53,140 - nwg-displays - DEBUG - MonitorConfigurationFormView: view_scale=0.1
+2025-05-12 00:32:53,143 - nwg-displays - INFO - Running on Hyprland
+2025-05-12 00:32:53,144 - nwg-displays - DEBUG - Gdk monitors: [<__gi__.GdkWaylandMonitor object at 0x7fb9e05b5380 (GdkWaylandMonitor at 0x337bcad0)>, <__gi__.GdkWaylandMonitor object at 0x7fb9dc2e6580 (GdkWaylandMonitor at 0x338adf40)>, <__gi__.GdkWaylandMonitor object at 0x7fb9dc2e6600 (GdkWaylandMonitor at 0x338afff0)>]
+2025-05-12 00:32:53,145 - nwg-displays - DEBUG - Got monitors: [(HyprlandMonitor eDP-1, (x:4000 y:2979), mode 3840x2400@60.0, scale 2.0, 1 modes, transform Normal), (HyprlandMonitor DP-2, (x:1440 y:1871), mode 2560x1440@155.0, scale 1.0, 43 modes, transform Normal), (HyprlandMonitor HDMI-A-1, (x:0 y:1457), mode 2560x1440@143.97, scale 1.0, 39 modes, transform Rotate 90)]
