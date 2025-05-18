@@ -4,7 +4,7 @@ from typing import Callable, List, Optional, Tuple
 
 from gi.repository import Gdk, Gtk
 
-from nwg_displays.configuration_service import ConfigurationService
+from nwg_displays.config.nwg_displays_config import ConfigurationService
 from nwg_displays.gui.monitor_button_indicator import MonitorButtonIndicator
 from nwg_displays.logger import logger
 from nwg_displays.monitor.monitor import Monitor
@@ -37,7 +37,6 @@ class DraggableMonitorButton(Gtk.Button):
         self,
         monitor: Monitor,
         canvas: Optional[Gtk.Fixed] = None,
-        config: Optional[dict] = None,
         after_move: Optional[Callable[[Gtk.Widget], None]] = None,
     ) -> None:
         super().__init__()
@@ -45,7 +44,9 @@ class DraggableMonitorButton(Gtk.Button):
         self.monitor = monitor
         self.canvas = canvas
         self.after_move = after_move
-        self.cfg = config or ConfigurationService().load_config()
+
+        # Use the singleton configuration service
+        self.config = ConfigurationService.get().get_config()
 
         self.drag = DragState()
         self._is_selected = False
@@ -62,7 +63,7 @@ class DraggableMonitorButton(Gtk.Button):
             monitor.get_name(),
             round(monitor.get_width() * self.scale_factor),
             round(monitor.get_height() * self.scale_factor),
-            self.cfg.get("indicator-timeout", 0),
+            self.config.indicator_timeout,
         )
 
         self._init_appearance()
@@ -112,20 +113,20 @@ class DraggableMonitorButton(Gtk.Button):
             self.after_move(self)
 
     def _apply_snapping(self, x: int, y: int) -> Tuple[int, int]:
-        horiz, vert = self._collect_snap_sets()
-        w = self.get_logical_width() * self.scale_factor
-        h = self.get_logical_height() * self.scale_factor
-        thr = self.snap_threshold
+        horizontal, vertical = self._collect_snap_sets()
+        width = self.get_logical_width() * self.scale_factor
+        height = self.get_logical_height() * self.scale_factor
+        threshold = self.snap_threshold
 
-        def snap(val: int, pts: set[int], size: float) -> int:
-            for p in pts:
-                if abs(val - p) < thr:
-                    return p
-                if abs(val + size - p) < thr:
-                    return p - int(size)
-            return val
+        def snap(value: int, points: set[int], size: float) -> int:
+            for point in points:
+                if abs(value - point) <= threshold:
+                    return point
+                if abs(value + size - point) <= threshold:
+                    return point - int(size)
+            return value
 
-        return snap(x, horiz, w), snap(y, vert, h)
+        return snap(x, horizontal, width), snap(y, vertical, height)
 
     def _collect_snap_sets(self) -> Tuple[set[int], set[int]]:
         sx, sy = {0}, {0}
@@ -207,14 +208,16 @@ class DraggableMonitorButton(Gtk.Button):
 
     @property
     def scale_factor(self) -> float:
-        v = self.cfg.get("view-scale", DEFAULT_VIEW_SCALE)
+        v = self.config.view_scale
         return v if v else DEFAULT_VIEW_SCALE
 
     @property
     def snap_threshold(self) -> int:
-        return round(
-            self.cfg.get("snap-threshold", DEFAULT_SNAP_PX) * self.scale_factor
-        )
+        # Make snap sensitivity more user-friendly (scaling as in old code)
+        raw = self.config.snap_threshold
+        scale = self.scale_factor
+        # You can adjust the multiplier below to increase/decrease sensitivity
+        return max(1, round(raw * scale * 10))
 
     def _siblings(self) -> List["DraggableMonitorButton"]:
         return self.canvas.get_children() if self.canvas else []
@@ -230,5 +233,3 @@ class DraggableMonitorButton(Gtk.Button):
 
     def detach(self) -> None:
         self.monitor.disconnect_by_func(self._on_model_change)
-        for h in self._handlers:
-            self.disconnect(h)

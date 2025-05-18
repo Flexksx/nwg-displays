@@ -21,10 +21,12 @@ from nwg_displays.gui.form.monitor_configuration_form_view import (
 )
 from nwg_displays.logger import logger
 from nwg_displays.arguments.argument_parser_factory import ArgumentParserFactory
-from nwg_displays.configuration_service import ConfigurationService
+from nwg_displays.config.nwg_displays_config import ConfigurationService
 from nwg_displays.gui.draggable_monitor_button import DraggableMonitorButton
 from nwg_displays.session.session_service import SessionService
 from nwg_displays.vocabulary_service import VocabularyService
+from typing import List
+
 
 gi.require_version("Gtk", "3.0")
 try:
@@ -51,7 +53,7 @@ config_dir = os.path.join(get_config_home(), "nwg-displays")
 # This was done by mistake, and the config file need to be migrated to the proper path
 old_config_dir = os.path.join(get_config_home(), "nwg-outputs")
 session_service = SessionService()
-configuration_service = ConfigurationService()
+configuration_service = ConfigurationService.get()
 vocabulary_service = VocabularyService()
 
 sway_config_dir = os.path.join(get_config_home(), "sway")
@@ -89,15 +91,6 @@ else:
 config = {}
 outputs_path = ""
 nr_workspaces_in_use = 0
-from typing import Dict, Any, List
-
-try:
-    from nwg_displays.monitor.monitor import Monitor
-    from nwg_displays.monitor.monitor_mode import MonitorMode
-except ImportError:
-    Monitor = None  # type: ignore
-    MonitorMode = None  # type: ignore
-
 
 """
 i3.get_outputs() does not return some output attributes, especially when connected via hdmi.
@@ -160,65 +153,11 @@ def show_error_dialog(parent_win, message):
     error_dialog.destroy()
 
 
-def on_button_press_event(widget, event):
-    if widget != selected_output_button:
-        widget.indicator.show_up()
-
-    if event.button == 1:
-        for db in monitor_buttons:
-            if db.name == widget.name:
-                db.select()
-            else:
-                db.unselect()
-
-        p = widget.get_parent()
-        # offset == distance of parent widget from edge of screen ...
-        global offset_x, offset_y
-        offset_x, offset_y = p.get_window().get_position()
-        # plus distance from pointer to edge of widget
-        offset_x += event.x
-        offset_y += event.y
-        # max_x, max_y both relative to the parent
-        # note that we're rounding down now so that these max values don't get
-        # rounded upward later and push the widget off the edge of its parent.
-        global max_x, max_y
-        max_x = round_down_to_multiple(
-            p.get_allocation().width - widget.get_allocation().width, SENSITIVITY
-        )
-        max_y = round_down_to_multiple(
-            p.get_allocation().height - widget.get_allocation().height, SENSITIVITY
-        )
-
-        # update_form_from_widget(widget)
-
-
-def on_view_scale_changed(*args):
-    config["view-scale"] = round(form_view_scale.get_value(), 2)
-
-    global snap_threshold_scaled
-    snap_threshold_scaled = round(config["snap-threshold"] * config["view-scale"] * 10)
-
-    for monitor_button in monitor_buttons:
-        monitor_button.rescale_transform()
-        fixed.move(
-            monitor_button,
-            monitor_button.get_monitor().get_x() * config["view-scale"],
-            monitor_button.get_monitor().get_y() * config["view-scale"],
-        )
-
-    save_json(config, os.path.join(config_dir, "config"))
-
-
 def on_transform_changed(*args):
     if selected_output_button:
         transform = form_transform.get_active_id()
         selected_output_button.transform = transform
         selected_output_button.rescale_transform()
-
-
-def on_use_desc_toggled(widget):
-    config["use-desc"] = widget.get_active()
-    save_json(config, os.path.join(config_dir, "config"))
 
 
 def on_mirror_selected(widget):
@@ -229,7 +168,10 @@ def on_mirror_selected(widget):
 def on_apply_button(widget):
     global outputs_activity
     apply_settings(
-        monitor_buttons, outputs_activity, outputs_path, use_desc=config["use-desc"]
+        monitor_buttons,
+        outputs_activity,
+        outputs_path,
+        use_desc=configuration_service.get().get_config().use_desc,
     )
     # save config file
     save_json(config, os.path.join(config_dir, "config"))
@@ -262,7 +204,6 @@ def create_display_buttons() -> None:
         btn = DraggableMonitorButton(
             monitor=mon,
             canvas=fixed,
-            config=config,
             after_move=lambda b, fv=form_view: fv.set_selected_monitor(b.get_monitor()),
         )
         btn.connect(
@@ -272,8 +213,8 @@ def create_display_buttons() -> None:
         monitor_buttons.append(btn)
         fixed.put(
             btn,
-            round(mon.get_x() * config["view-scale"]),
-            round(mon.get_y() * config["view-scale"]),
+            round(mon.get_x() * configuration_service.get().get_config()._view_scale),
+            round(mon.get_y() * configuration_service.get().get_config()._view_scale),
         )
 
     # hand the list to the form so it can build “mirror” options
@@ -309,7 +250,8 @@ def create_workspaces_window(btn):
     global sway_config_dir
     global workspaces
     workspaces = load_workspaces(
-        os.path.join(sway_config_dir, "workspaces"), use_desc=config["use-desc"]
+        os.path.join(sway_config_dir, "workspaces"),
+        use_desc=configuration_service.get().get_config().use_desc,
     )
     old_workspaces = workspaces.copy()
     global dialog_win
@@ -334,7 +276,7 @@ def create_workspaces_window(btn):
         grid.attach(lbl, 0, i, 1, 1)
         combo = Gtk.ComboBoxText()
         for key in outputs:
-            if not config["use-desc"]:
+            if not configuration_service.get().get_config().use_desc:
                 combo.append(key, key)
             else:
                 desc = "{}".format(outputs[key]["description"])
@@ -391,7 +333,7 @@ def create_workspaces_window_hypr(btn):
     last_row = 0
     for i in range(nr_workspaces_in_use):
         lbl = Gtk.Label()
-        if config["use-desc"]:
+        if configuration_service.get().get_config().use_desc:
             lbl.set_markup(
                 "Workspace rule: <b>workspace={},monitor:desc:</b>".format(i + 1)
             )
@@ -401,7 +343,7 @@ def create_workspaces_window_hypr(btn):
         grid.attach(lbl, 0, i, 1, 1)
         combo = Gtk.ComboBoxText()
         for key in outputs:
-            if not config["use-desc"]:
+            if not configuration_service.get().get_config().use_desc:
                 combo.append(key, key)
             else:
                 desc = "{}".format(outputs[key]["description"])
@@ -451,7 +393,7 @@ def on_workspaces_apply_btn(w, win, old_workspaces):
         save_workspaces(
             workspaces,
             os.path.join(sway_config_dir, "workspaces"),
-            use_desc=config["use-desc"],
+            use_desc=configuration_service.get().get_config().use_desc,
         )
         notify("Workspaces assignment", "Restart sway for changes to take effect")
 
@@ -476,7 +418,7 @@ def on_workspaces_apply_btn_hypr(w, win, old_workspaces):
         monitors_with_default_workspace = []
         for ws in workspaces:
             mon = workspaces[ws]
-            if not config["use-desc"]:
+            if not configuration_service.get().get_config().use_desc:
                 line = "workspace={},monitor:{}".format(ws, mon)
             else:
                 line = "workspace={},monitor:desc:{}".format(ws, mon)
@@ -660,7 +602,7 @@ def create_confirm_win(backup, path):
     grid.attach(lbl, 0, 0, 2, 1)
 
     global counter
-    counter = config["confirm-timeout"]
+    counter = configuration_service.get().get_config().confirm_timeout
 
     cnt_lbl = Gtk.Label.new(str(counter))
     grid.attach(cnt_lbl, 0, 1, 2, 1)
@@ -764,12 +706,12 @@ def main():
 
     global config
 
-    config = configuration_service.load_config()
+    config = configuration_service.get().get_config()
 
-    logger.info("Settings: {}".format(config))
+    logger.info("Program global configuration: {}".format(config))
 
     global snap_threshold_scaled
-    snap_threshold_scaled = config["snap-threshold"]
+    snap_threshold_scaled = configuration_service.get().get_config().snap_threshold
 
     builder = Gtk.Builder()
     builder.add_from_file(os.path.join(dir_name, "resources/main.glade"))
@@ -824,7 +766,6 @@ def main():
     form_view = MonitorConfigurationFormView(
         builder=builder,
         monitor_buttons=monitor_buttons,
-        config=config,
         vocabulary=vocabulary,
         fixed_container=fixed,
     )
@@ -886,7 +827,6 @@ def main():
             )
         )
     )
-    form_use_desc.connect("toggled", on_use_desc_toggled)
 
     global form_transform
     form_transform = builder.get_object("transform")
@@ -968,7 +908,7 @@ def main():
 
         global form_ten_bit
         form_ten_bit = Gtk.CheckButton.new_with_label(
-            vocabulary.get("10-bit-support", "10 bit support")
+            vocabulary.get("10-bit-support", "10 bit ")
         )
         form_ten_bit.set_tooltip_text(
             vocabulary.get(

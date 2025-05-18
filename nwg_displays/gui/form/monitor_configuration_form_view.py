@@ -3,16 +3,18 @@ from typing import Callable, Dict, List, Optional, Any
 
 from gi.repository import Gtk
 
+from nwg_displays.config.nwg_displays_config import ConfigurationService
 from nwg_displays.gui.draggable_monitor_button import DraggableMonitorButton
 from nwg_displays.gui.form.adjustment_form import AdjustmentForm
 from nwg_displays.gui.form.boolean_form import BooleanForm
 from nwg_displays.gui.form.text_form import TextForm
-from nwg_displays.logger import logger
+from nwg_displays.logger import get_class_logger
 from nwg_displays.monitor.monitor import Monitor
 from nwg_displays.monitor.monitor_mode import MonitorMode
 from nwg_displays.session.session_service import SessionService
 
 session_service = SessionService()
+configuration_service = ConfigurationService.get()  # Singleton access
 DEFAULT_VIEW_SCALE = 0.15
 
 
@@ -30,22 +32,23 @@ class MonitorConfigurationFormView:
         self,
         builder: Gtk.Builder,
         monitor_buttons: List[DraggableMonitorButton],
-        config: Dict[str, Any],
         vocabulary: Dict[str, str],
         fixed_container: Gtk.Fixed,
         on_monitor_changed_callback: Optional[Callable[[Monitor], None]] = None,
     ):
+        self.__logger = get_class_logger(self.__class__)
         self._builder = builder
         self._buttons = monitor_buttons
-        self._config = config
+        self._config = configuration_service.get_config()
+        self.__logger.debug(f"MonitorConfigurationFormView config={self._config}")
         self._vocab = vocabulary
         self._fixed = fixed_container
         self._notify_parent = on_monitor_changed_callback
 
         self._monitor: Optional[Monitor] = None
         self._monitor_handler: Optional[int] = None
+        self._config_handler: Optional[int] = None
         self._updating = False
-
         self._setup_widgets()
 
         if monitor_buttons:
@@ -91,7 +94,7 @@ class MonitorConfigurationFormView:
         self.use_desc = BooleanForm(
             builder=b,
             glade_name="use-desc",
-            on_event_callback=("toggled", self._on_use_desc),
+            on_event_callback=("toggled", self._on_use_desc_changed),
             tooltip=v.get(
                 "use-desc-tooltip",
                 "Show EDID description instead of connector name.",
@@ -102,19 +105,46 @@ class MonitorConfigurationFormView:
         self.y = self._adj("y", 0, 40000, self._num("y"), digits=0)
         self.w = self._adj("width", 0, 7680, self._num("width"), digits=0)
         self.h = self._adj("height", 0, 4320, self._num("height"), digits=0)
-        self.scale = self._adj("scale", 0.1, 10.0, self._float("scale"), digits=2)
-        self.refresh = self._adj("refresh", 1, 1200, self._float("refresh"), digits=2)
-        self.view_scale = self._adj(
-            "view-scale", 0.1, 0.6, self._on_view_scale, step=0.05, digits=2
+        self.scale = self._adj(
+            "scale", 0.1, 10.0, self._float("scale"), digits=2, step=0.1
         )
-        init_view_scale = self._config.get("view-scale", DEFAULT_VIEW_SCALE)
-        if init_view_scale == 0:
-            init_view_scale = DEFAULT_VIEW_SCALE
-        self.view_scale.set_value(init_view_scale)
-        logger.debug(
-            f"MonitorConfigurationFormView: view_scale={self.view_scale.get_value()}"
+        self.refresh = self._adj("refresh", 1, 1200, self._float("refresh"), digits=2)
+
+        # Set up view scale with proper config binding
+        init_view_scale = self._config.view_scale or DEFAULT_VIEW_SCALE
+        self.__logger.debug(f"View scale from config={init_view_scale}")
+
+        """ self.view_scale = self._adj(
+            "view-scale",
+            0.05,
+            1.00,
+            self._on_view_scale_changed,
+            step=0.05,
+            digits=2,
+            initial_value=init_view_scale,
+        ) """
+        self.view_scale_spin = self._builder.get_object("view-scale")
+        self.view_scale_adjustment = Gtk.Adjustment(
+            value=init_view_scale,
+            lower=0.05,
+            upper=1.0,
+            step_increment=0.05,
+            page_increment=0.1,
+            page_size=0,
+        )
+        self.view_scale_adjustment.connect(
+            "value-changed",
+            self._on_view_scale_changed,
         )
 
+        self.view_scale_spin.set_adjustment(self.view_scale_adjustment)
+        self.view_scale_spin.set_digits(2)
+        self.view_scale_spin.set_tooltip_text(
+            self._vocab.get(
+                "view-scale-tooltip",
+                "Scale factor for the view. 1.0 = 100%.",
+            )
+        )
         self.scale_filter: Gtk.ComboBox = b.get_object("scale-filter")
         self.scale_filter.connect("changed", self._on_scale_filter)
 
@@ -130,7 +160,7 @@ class MonitorConfigurationFormView:
             grid: Gtk.Grid = b.get_object("grid")
 
             self.ten_bit = Gtk.CheckButton.new_with_label(
-                v.get("10-bit-support", "10 bit colour"),
+                v.get("10-bit-support", "10 bit support"),
             )
             self.ten_bit.set_tooltip_text(
                 v.get("10-bit-support-tooltip", "Enable 10-bit colour depth."),
@@ -146,6 +176,12 @@ class MonitorConfigurationFormView:
             self.mirror.connect("changed", self._on_mirror)
             grid.attach(self.mirror, 7, 4, 1, 1)
 
+        # Connect to config changes (if the config supports signals)
+        if hasattr(self._config, "connect"):
+            self._config_handler = self._config.connect(
+                "property-changed", self._on_config_change
+            )
+
     def _adj(
         self,
         name: str,
@@ -156,6 +192,7 @@ class MonitorConfigurationFormView:
         step: int | float = 1,
         page: int | float = 10,
         digits: int = 2,
+        initial_value: Optional[int | float] = None,
     ):
         return AdjustmentForm(
             builder=self._builder,
@@ -168,6 +205,7 @@ class MonitorConfigurationFormView:
             page_size=1,
             climb_rate=step,
             digits=digits,
+            initial_value=initial_value,
         )
 
     def set_selected_monitor(self, m: Monitor) -> None:
@@ -177,6 +215,19 @@ class MonitorConfigurationFormView:
         self._monitor = m
         self._monitor_handler = m.connect("property-changed", self._on_model_change)
         self._refresh_all()
+
+    def _on_config_change(self, _config, field: str, _value) -> None:
+        """Handle config changes and update widgets accordingly"""
+        if self._updating:
+            return
+        self._updating = True
+        try:
+            if field == "view_scale":
+                self.view_scale.set_value(self._config.view_scale or DEFAULT_VIEW_SCALE)
+            elif field == "use_desc":
+                self.use_desc.set_active(self._config.use_desc)
+        finally:
+            self._updating = False
 
     def _on_model_change(self, _m: Monitor, field: str, _value) -> None:
         if self._updating:
@@ -239,25 +290,32 @@ class MonitorConfigurationFormView:
         return cb
 
     def _on_custom_toggled(self, btn: Gtk.ToggleButton):
-        modes = set(self._config.get("custom-mode", []))
+        modes = set(self._config.custom_mode)
         if btn.get_active():
             modes.add(self._monitor.get_name())
         else:
             modes.discard(self._monitor.get_name())
-        self._config["custom-mode"] = tuple(modes)
+        self._config.custom_mode = list(modes)  # Uses property setter, will save config
         self._notify_parent()
 
-    def _on_use_desc(self, btn: Gtk.ToggleButton):
-        self._config["use-desc"] = btn.get_active()
+    def _on_use_desc_changed(self, btn: Gtk.ToggleButton):
+        """Handle use description widget changes and update config"""
+        if self._updating:
+            return
+        self._config.use_desc = btn.get_active()
 
-    def _on_view_scale(self, adj: Gtk.Adjustment):
-        self._config["view-scale"] = round(adj.get_value(), 2)
+    def _on_view_scale_changed(self, adj: Gtk.Adjustment):
+        """Handle view scale widget changes and update config"""
+        if self._updating:
+            return
+        self.__logger.debug(f"View scale changed to {adj.get_value()}")
+        self._config.view_scale = adj.get_value()
         for b in self._buttons:
             b.rescale_transform()
             self._fixed.move(
                 b,
-                b.get_monitor().get_x() * self._config["view-scale"],
-                b.get_monitor().get_y() * self._config["view-scale"],
+                b.get_monitor().get_x() * self._config.view_scale,
+                b.get_monitor().get_y() * self._config.view_scale,
             )
 
     def _on_transform(self, box: Gtk.ComboBox):
@@ -317,6 +375,9 @@ class MonitorConfigurationFormView:
             self.sync.set_value(self._monitor.get_is_adaptive_sync_enabled())
             self._refresh_transform_and_modes()
 
+            # self.view_scale.set_value(self._config.view_scale or DEFAULT_VIEW_SCALE)
+            self.use_desc.set_value(self._config.use_desc)
+
             if self.ten_bit:
                 self.ten_bit.set_active(self._monitor.get_is_ten_bit_enabled())
             if self.mirror:
@@ -367,3 +428,10 @@ class MonitorConfigurationFormView:
 
     def get_selected_monitor(self) -> Optional[Monitor]:
         return self._monitor
+
+    def __del__(self):
+        """Clean up handlers when the object is destroyed"""
+        if self._monitor_handler and self._monitor:
+            self._monitor.disconnect(self._monitor_handler)
+        if self._config_handler and hasattr(self._config, "disconnect"):
+            self._config.disconnect(self._config_handler)

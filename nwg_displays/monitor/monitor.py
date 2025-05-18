@@ -4,6 +4,7 @@ from nwg_displays.monitor.backend import MonitorBackend
 from nwg_displays.monitor.monitor_base_configuration import MonitorConfiguration
 from nwg_displays.monitor.monitor_mode import MonitorMode
 from nwg_displays.monitor.monitor_transform_mode import MonitorTransformMode
+from nwg_displays.logger import logger, get_class_logger
 
 
 class Monitor(GObject.GObject):
@@ -18,6 +19,7 @@ class Monitor(GObject.GObject):
         super().__init__()
         self.__config = config
         self.__selected_mode = self.__config.modes[0] if self.__config.modes else None
+        self.__logger = get_class_logger(self.__class__)
 
     def to_config_string(self) -> str:
         """Convert the monitor config to a string format."""
@@ -117,31 +119,37 @@ class Monitor(GObject.GObject):
             self._emit_change("height", value)
 
     def set_scale(self, value: float):
+        self.__logger.info(f"Set scale to {value} for {self.__config.name}")
         if value != self.__config.scale:
             self.__config.scale = value
             self._emit_change("scale", value)
 
     def set_refresh_rate(self, value: float):
+        self.__logger.info(f"Set refresh rate to {value} for {self.__config.name}")
         if value != self.__config.refresh_rate:
             self.__config.refresh_rate = value
             self._emit_change("refresh_rate", value)
 
     def set_is_adaptive_sync_enabled(self, value: bool):
+        self.__logger.info(f"Set adaptive sync to {value} for {self.__config.name}")
         if value != self.__config.is_adaptive_sync_enabled:
             self.__config.is_adaptive_sync_enabled = value
             self._emit_change("adaptive_sync", value)
 
     def set_is_dpms_enabled(self, value: bool):
+        self.__logger.info(f"Set DPMS to {value} for {self.__config.name}")
         if value != self.__config.is_dpms_enabled:
             self.__config.is_dpms_enabled = value
             self._emit_change("dpms", value)
 
     def set_is_ten_bit_enabled(self, value: bool):
+        self.__logger.info(f"Set 10-bit to {value} for {self.__config.name}")
         if value != self.__config.is_ten_bit_enabled:
             self.__config.is_ten_bit_enabled = value
             self._emit_change("ten_bit", value)
 
     def set_transform(self, value: MonitorTransformMode):
+        self.__logger.info(f"Set transform to {value} for {self.__config.name}")
         if value != self.__config.transform:
             self.__config.transform = value
             self._emit_change("transform", value)
