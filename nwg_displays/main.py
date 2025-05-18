@@ -16,7 +16,7 @@ Thank you, Kurt Jacobson!
 import sys
 
 import gi
-from nwg_displays.gui.form.monitor_configuration_form_view import (
+from nwg_displays.gui.monitor_configuration_form_view import (
     MonitorConfigurationFormView,
 )
 from nwg_displays.logger import logger
@@ -817,17 +817,6 @@ def main():
     )
     # form_modes.connect("changed", on_mode_changed)
 
-    global form_use_desc
-    form_use_desc = builder.get_object("use-desc")
-    form_use_desc.set_label("{}".format(vocabulary.get("use-desc", "Use Descriptions")))
-    form_use_desc.set_tooltip_text(
-        "{}".format(
-            vocabulary.get(
-                "use-desc-tooltip", "Use display descriptions instead of names"
-            )
-        )
-    )
-
     global form_transform
     form_transform = builder.get_object("transform")
     form_transform.set_tooltip_text(
@@ -905,18 +894,6 @@ def main():
 
     if session_service.is_hyprland_session():
         grid = builder.get_object("grid")
-
-        global form_ten_bit
-        form_ten_bit = Gtk.CheckButton.new_with_label(
-            vocabulary.get("10-bit-support", "10 bit ")
-        )
-        form_ten_bit.set_tooltip_text(
-            vocabulary.get(
-                "10-bit-support-tooltip", "Enables support for 10-bit color depth."
-            )
-        )
-        # form_ten_bit.connect("toggled", on_ten_bit_toggled)
-        grid.attach(form_ten_bit, 5, 4, 1, 1)
 
         lbl = Gtk.Label.new("Mirror:")
         lbl.set_property("halign", Gtk.Align.END)

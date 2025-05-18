@@ -27,6 +27,9 @@ class Monitor(GObject.GObject):
 
     def _emit_change(self, field: str, value):
         """Internal: broadcast that a field changed."""
+        self.__logger.debug(
+            f"Emitting change of field {field} to {value} for {self.get_name()}"
+        )
         self.emit("property-changed", field, value)
 
     def get_name(self) -> str:
@@ -149,7 +152,9 @@ class Monitor(GObject.GObject):
             self._emit_change("ten_bit", value)
 
     def set_transform(self, value: MonitorTransformMode):
-        self.__logger.info(f"Set transform to {value} for {self.__config.name}")
+        self.__logger.info(
+            f"[{self.get_name()}] Set transform to {value} for {self.__config.name}"
+        )
         if value != self.__config.transform:
             self.__config.transform = value
             self._emit_change("transform", value)

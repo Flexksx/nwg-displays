@@ -5,17 +5,18 @@ from gi.repository import Gtk
 
 from nwg_displays.config.nwg_displays_config import ConfigurationService
 from nwg_displays.gui.draggable_monitor_button import DraggableMonitorButton
-from nwg_displays.gui.form.adjustment_form import AdjustmentForm
 from nwg_displays.gui.form.boolean_form import BooleanForm
+from nwg_displays.gui.form.configuration_form_view import ConfigurationFormView
+from nwg_displays.gui.form.monitor_adjustment_form_view import MonitorAdjustmentFormView
 from nwg_displays.gui.form.text_form import TextForm
 from nwg_displays.logger import get_class_logger
 from nwg_displays.monitor.monitor import Monitor
 from nwg_displays.monitor.monitor_mode import MonitorMode
+from nwg_displays.monitor.monitor_transform_mode import MonitorTransformMode
 from nwg_displays.session.session_service import SessionService
 
 session_service = SessionService()
 configuration_service = ConfigurationService.get()  # Singleton access
-DEFAULT_VIEW_SCALE = 0.15
 
 
 class MonitorConfigurationFormView:
@@ -47,9 +48,37 @@ class MonitorConfigurationFormView:
 
         self._monitor: Optional[Monitor] = None
         self._monitor_handler: Optional[int] = None
-        self._config_handler: Optional[int] = None
         self._updating = False
         self._setup_widgets()
+
+        # Create configuration form view with signal connections
+        self._configuration_form_view = ConfigurationFormView(
+            builder=self._builder, config=self._config, vocabulary=self._vocab
+        )
+        self._configuration_form_view.connect(
+            "view-scale-changed", self._on_view_scale_changed
+        )
+
+        # Create monitor adjustment form view with signal connections
+        self._monitor_adjustment_form_view = MonitorAdjustmentFormView(
+            builder=self._builder,
+            vocabulary=self._vocab,
+        )
+        self._monitor_adjustment_form_view.connect(
+            "monitor-position-changed", self._on_monitor_position_changed
+        )
+        self._monitor_adjustment_form_view.connect(
+            "monitor-size-changed", self._on_monitor_size_changed
+        )
+        self._monitor_adjustment_form_view.connect(
+            "monitor-scale-changed", self._on_monitor_scale_changed
+        )
+        self._monitor_adjustment_form_view.connect(
+            "monitor-refresh-changed", self._on_monitor_refresh_changed
+        )
+        self._monitor_adjustment_form_view.connect(
+            "monitor-property-changed", self._on_monitor_property_changed
+        )
 
         if monitor_buttons:
             self.set_selected_monitor(monitor_buttons[0].get_monitor())
@@ -57,6 +86,7 @@ class MonitorConfigurationFormView:
     def _setup_widgets(self) -> None:
         v, b = self._vocab, self._builder
 
+        # Text form widgets
         self.name = TextForm(
             builder=b,
             glade_name="name",
@@ -67,16 +97,18 @@ class MonitorConfigurationFormView:
             glade_name="description",
             tooltip=v.get("description-tooltip", "Monitor description"),
         )
+
+        # Boolean form widgets
         self.dpms = BooleanForm(
             builder=b,
             glade_name="dpms",
-            on_event_callback=("toggled", self._bool("dpms")),
+            on_event_callback=("toggled", self._on_dpms_changed),
             tooltip=v.get("dpms-tooltip", "DPMS (turn display off when idle)"),
         )
         self.sync = BooleanForm(
             builder=b,
             glade_name="adaptive-sync",
-            on_event_callback=("toggled", self._bool("adaptive")),
+            on_event_callback=("toggled", self._on_adaptive_sync_changed),
             tooltip=v.get(
                 "adaptive-sync-tooltip",
                 "Variable Refresh Rate / FreeSync / G-Sync.",
@@ -91,60 +123,8 @@ class MonitorConfigurationFormView:
                 "Add '--custom' to sway's *mode* command.",
             ),
         )
-        self.use_desc = BooleanForm(
-            builder=b,
-            glade_name="use-desc",
-            on_event_callback=("toggled", self._on_use_desc_changed),
-            tooltip=v.get(
-                "use-desc-tooltip",
-                "Show EDID description instead of connector name.",
-            ),
-        )
 
-        self.x = self._adj("x", 0, 60000, self._num("x"), digits=0)
-        self.y = self._adj("y", 0, 40000, self._num("y"), digits=0)
-        self.w = self._adj("width", 0, 7680, self._num("width"), digits=0)
-        self.h = self._adj("height", 0, 4320, self._num("height"), digits=0)
-        self.scale = self._adj(
-            "scale", 0.1, 10.0, self._float("scale"), digits=2, step=0.1
-        )
-        self.refresh = self._adj("refresh", 1, 1200, self._float("refresh"), digits=2)
-
-        # Set up view scale with proper config binding
-        init_view_scale = self._config.view_scale or DEFAULT_VIEW_SCALE
-        self.__logger.debug(f"View scale from config={init_view_scale}")
-
-        """ self.view_scale = self._adj(
-            "view-scale",
-            0.05,
-            1.00,
-            self._on_view_scale_changed,
-            step=0.05,
-            digits=2,
-            initial_value=init_view_scale,
-        ) """
-        self.view_scale_spin = self._builder.get_object("view-scale")
-        self.view_scale_adjustment = Gtk.Adjustment(
-            value=init_view_scale,
-            lower=0.05,
-            upper=1.0,
-            step_increment=0.05,
-            page_increment=0.1,
-            page_size=0,
-        )
-        self.view_scale_adjustment.connect(
-            "value-changed",
-            self._on_view_scale_changed,
-        )
-
-        self.view_scale_spin.set_adjustment(self.view_scale_adjustment)
-        self.view_scale_spin.set_digits(2)
-        self.view_scale_spin.set_tooltip_text(
-            self._vocab.get(
-                "view-scale-tooltip",
-                "Scale factor for the view. 1.0 = 100%.",
-            )
-        )
+        # Other combo box widgets
         self.scale_filter: Gtk.ComboBox = b.get_object("scale-filter")
         self.scale_filter.connect("changed", self._on_scale_filter)
 
@@ -154,6 +134,7 @@ class MonitorConfigurationFormView:
         self.modes: Gtk.ComboBox = b.get_object("modes")
         self.modes.connect("changed", self._on_mode)
 
+        # Hyprland-specific widgets
         self.ten_bit: Optional[Gtk.CheckButton] = None
         self.mirror: Optional[Gtk.ComboBox] = None
         if session_service.is_hyprland_session():
@@ -176,77 +157,25 @@ class MonitorConfigurationFormView:
             self.mirror.connect("changed", self._on_mirror)
             grid.attach(self.mirror, 7, 4, 1, 1)
 
-        # Connect to config changes (if the config supports signals)
-        if hasattr(self._config, "connect"):
-            self._config_handler = self._config.connect(
-                "property-changed", self._on_config_change
-            )
-
-    def _adj(
-        self,
-        name: str,
-        low: int | float,
-        up: int | float,
-        on_change_cb,
-        *,
-        step: int | float = 1,
-        page: int | float = 10,
-        digits: int = 2,
-        initial_value: Optional[int | float] = None,
-    ):
-        return AdjustmentForm(
-            builder=self._builder,
-            glade_name=name,
-            on_event_callback=("value-changed", on_change_cb),
-            lower_bound=low,
-            upper_bound=up,
-            step_increment=step,
-            page_increment=page,
-            page_size=1,
-            climb_rate=step,
-            digits=digits,
-            initial_value=initial_value,
-        )
-
     def set_selected_monitor(self, m: Monitor) -> None:
-        if self._monitor_handler:
+        # Set monitor on the adjustment form (this handles disconnecting from previous monitor)
+        self._monitor_adjustment_form_view.set_monitor(m)
+
+        # Handle monitor property changes for non-adjustment properties
+        if self._monitor_handler and self._monitor:
             self._monitor.disconnect(self._monitor_handler)
 
         self._monitor = m
         self._monitor_handler = m.connect("property-changed", self._on_model_change)
         self._refresh_all()
 
-    def _on_config_change(self, _config, field: str, _value) -> None:
-        """Handle config changes and update widgets accordingly"""
-        if self._updating:
-            return
-        self._updating = True
-        try:
-            if field == "view_scale":
-                self.view_scale.set_value(self._config.view_scale or DEFAULT_VIEW_SCALE)
-            elif field == "use_desc":
-                self.use_desc.set_active(self._config.use_desc)
-        finally:
-            self._updating = False
-
     def _on_model_change(self, _m: Monitor, field: str, _value) -> None:
+        """Handle monitor property changes for non-adjustment properties"""
         if self._updating:
             return
         self._updating = True
         try:
-            if field == "x":
-                self.x.set_value(self._monitor.get_x())
-            elif field == "y":
-                self.y.set_value(self._monitor.get_y())
-            elif field == "width":
-                self.w.set_value(self._monitor.get_width())
-            elif field == "height":
-                self.h.set_value(self._monitor.get_height())
-            elif field == "scale":
-                self.scale.set_value(self._monitor.get_scale())
-            elif field == "refresh_rate":
-                self.refresh.set_value(self._monitor.get_refresh_rate())
-            elif field == "dpms":
+            if field == "dpms":
                 self.dpms.set_active(self._monitor.get_is_dpms_enabled())
             elif field == "adaptive_sync":
                 self.sync.set_active(self._monitor.get_is_adaptive_sync_enabled())
@@ -259,83 +188,120 @@ class MonitorConfigurationFormView:
         finally:
             self._updating = False
 
-    def _num(self, field: str):
-        def cb(adj: Gtk.Adjustment):
-            if self._monitor is None or self._updating:
-                return
-            getattr(self._monitor, f"set_{field}")(int(round(adj.get_value())))
-            self._notify_parent()
+    # Signal handlers for configuration changes
+    def _on_view_scale_changed(self, config_form: ConfigurationFormView, value: float):
+        """Handle view scale changes from configuration form"""
+        for button in self._buttons:
+            button.rescale_transform()
+            self._fixed.move(
+                button,
+                button.get_monitor().get_x() * value,
+                button.get_monitor().get_y() * value,
+            )
 
-        return cb
+    # Signal handlers for monitor adjustment changes
+    def _on_monitor_position_changed(
+        self, adjustment_form, monitor: Monitor, x: int, y: int
+    ):
+        """Handle monitor position changes from adjustment form"""
+        self.__logger.debug(
+            f"Monitor position changed: {monitor.get_name()} -> ({x}, {y})"
+        )
+        if self._notify_parent:
+            self._notify_parent(monitor)
 
-    def _float(self, field: str):
-        def cb(adj: Gtk.Adjustment):
-            if self._monitor is None or self._updating:
-                return
-            getattr(self._monitor, f"set_{field}")(adj.get_value())
-            self._notify_parent()
+    def _on_monitor_size_changed(
+        self, adjustment_form, monitor: Monitor, width: int, height: int
+    ):
+        """Handle monitor size changes from adjustment form"""
+        self.__logger.debug(
+            f"Monitor size changed: {monitor.get_name()} -> {width}x{height}"
+        )
+        if self._notify_parent:
+            self._notify_parent(monitor)
 
-        return cb
+    def _on_monitor_scale_changed(
+        self, adjustment_form, monitor: Monitor, scale: float
+    ):
+        """Handle monitor scale changes from adjustment form"""
+        self.__logger.debug(
+            f"Monitor scale changed: {monitor.get_name()} -> scale {scale}"
+        )
+        if self._notify_parent:
+            self._notify_parent(monitor)
 
-    def _bool(self, which: str):
-        def cb(btn: Gtk.ToggleButton):
-            if self._monitor is None or self._updating:
-                return
-            if which == "dpms":
-                self._monitor.set_is_dpms_enabled(btn.get_active())
-            else:
-                self._monitor.set_is_adaptive_sync_enabled(btn.get_active())
-            self._notify_parent()
+    def _on_monitor_refresh_changed(
+        self, adjustment_form, monitor: Monitor, refresh_rate: float
+    ):
+        """Handle monitor refresh rate changes from adjustment form"""
+        self.__logger.debug(
+            f"Monitor refresh rate changed: {monitor.get_name()} -> {refresh_rate}Hz"
+        )
+        if self._notify_parent:
+            self._notify_parent(monitor)
 
-        return cb
+    def _on_monitor_property_changed(
+        self, adjustment_form, monitor: Monitor, property_name: str, new_value
+    ):
+        """Handle general monitor property changes from adjustment form"""
+        self.__logger.debug(
+            f"Monitor property changed: {monitor.get_name()}.{property_name} = {new_value}"
+        )
+
+    # Widget event handlers
+    def _on_dpms_changed(self, btn: Gtk.ToggleButton):
+        """Handle DPMS checkbox changes"""
+        if self._monitor is None or self._updating:
+            return
+        self._monitor.set_is_dpms_enabled(btn.get_active())
+        if self._notify_parent:
+            self._notify_parent(self._monitor)
+
+    def _on_adaptive_sync_changed(self, btn: Gtk.ToggleButton):
+        """Handle adaptive sync checkbox changes"""
+        if self._monitor is None or self._updating:
+            return
+        self._monitor.set_is_adaptive_sync_enabled(btn.get_active())
+        if self._notify_parent:
+            self._notify_parent(self._monitor)
 
     def _on_custom_toggled(self, btn: Gtk.ToggleButton):
+        """Handle custom mode checkbox changes"""
+        if self._monitor is None:
+            return
         modes = set(self._config.custom_mode)
         if btn.get_active():
             modes.add(self._monitor.get_name())
         else:
             modes.discard(self._monitor.get_name())
-        self._config.custom_mode = list(modes)  # Uses property setter, will save config
-        self._notify_parent()
-
-    def _on_use_desc_changed(self, btn: Gtk.ToggleButton):
-        """Handle use description widget changes and update config"""
-        if self._updating:
-            return
-        self._config.use_desc = btn.get_active()
-
-    def _on_view_scale_changed(self, adj: Gtk.Adjustment):
-        """Handle view scale widget changes and update config"""
-        if self._updating:
-            return
-        self.__logger.debug(f"View scale changed to {adj.get_value()}")
-        self._config.view_scale = adj.get_value()
-        for b in self._buttons:
-            b.rescale_transform()
-            self._fixed.move(
-                b,
-                b.get_monitor().get_x() * self._config.view_scale,
-                b.get_monitor().get_y() * self._config.view_scale,
-            )
+        self._config.custom_mode = list(modes)
+        if self._notify_parent:
+            self._notify_parent(self._monitor)
 
     def _on_transform(self, box: Gtk.ComboBox):
-        if self._updating:
+        """Handle transform combobox changes"""
+        if self._updating or self._monitor is None:
             return
         tid = box.get_active_id()
         if tid:
-            self._monitor.set_transform(int(tid))
-            self._notify_parent()
+            transform = MonitorTransformMode(tid)
+            self._monitor.set_transform(transform)
+            if self._notify_parent:
+                self._notify_parent(self._monitor)
 
     def _on_scale_filter(self, box: Gtk.ComboBox):
-        if self._updating:
+        """Handle scale filter combobox changes"""
+        if self._updating or self._monitor is None:
             return
         sid = box.get_active_id()
         if sid and hasattr(self._monitor, "set_scale_filter"):
             self._monitor.set_scale_filter(sid)
-            self._notify_parent()
+            if self._notify_parent:
+                self._notify_parent(self._monitor)
 
     def _on_mode(self, box: Gtk.ComboBox):
-        if self._updating:
+        """Handle mode combobox changes"""
+        if self._updating or self._monitor is None:
             return
         idx = box.get_active()
         modes = self._monitor.get_modes()
@@ -344,40 +310,46 @@ class MonitorConfigurationFormView:
             self._monitor.set_width(mode.get_width())
             self._monitor.set_height(mode.get_height())
             self._monitor.set_refresh_rate(mode.get_refresh_rate())
-            self._notify_parent()
+            if self._notify_parent:
+                self._notify_parent(self._monitor)
 
     def _on_ten_bit(self, btn: Gtk.ToggleButton):
-        if self._updating:
+        """Handle 10-bit checkbox changes (Hyprland only)"""
+        if self._updating or self._monitor is None:
             return
         self._monitor.set_is_ten_bit_enabled(btn.get_active())
-        self._notify_parent()
+        if self._notify_parent:
+            self._notify_parent(self._monitor)
 
     def _on_mirror(self, box: Gtk.ComboBox):
-        if self._updating or not self.mirror:
+        """Handle mirror combobox changes (Hyprland only)"""
+        if self._updating or not self.mirror or self._monitor is None:
             return
         self._monitor.set_mirror(box.get_active_id())
-        self._notify_parent()
+        if self._notify_parent:
+            self._notify_parent(self._monitor)
 
     def _refresh_all(self) -> None:
+        """Refresh all widgets from current monitor and config values"""
         if not self._monitor:
             return
         self._updating = True
         try:
+            # Basic info
             self.name.set_value(self._monitor.get_name())
             self.desc.set_value(self._monitor.get_model()[:48])
-            self.x.set_value(self._monitor.get_x())
-            self.y.set_value(self._monitor.get_y())
-            self.w.set_value(self._monitor.get_width())
-            self.h.set_value(self._monitor.get_height())
-            self.scale.set_value(self._monitor.get_scale())
-            self.refresh.set_value(self._monitor.get_refresh_rate())
+
+            # Boolean properties
             self.dpms.set_value(self._monitor.get_is_dpms_enabled())
             self.sync.set_value(self._monitor.get_is_adaptive_sync_enabled())
+
+            # Position, size, scale, refresh (handled by adjustment form)
+            self._monitor_adjustment_form_view.refresh_all()
+
+            # Transform and modes
             self._refresh_transform_and_modes()
 
-            # self.view_scale.set_value(self._config.view_scale or DEFAULT_VIEW_SCALE)
-            self.use_desc.set_value(self._config.use_desc)
-
+            # Hyprland-specific properties
             if self.ten_bit:
                 self.ten_bit.set_active(self._monitor.get_is_ten_bit_enabled())
             if self.mirror:
@@ -386,27 +358,26 @@ class MonitorConfigurationFormView:
             self._updating = False
 
     def _refresh_transform_and_modes(self) -> None:
+        """Refresh transform and modes comboboxes"""
         self.transform.set_active_id(str(self._monitor.get_transform()))
 
-        self.modes.handler_block_by_func(self._on_mode)
-        try:
-            self.modes.remove_all()
-            active_id = ""
-            for i, mode in enumerate(self._monitor.get_modes()):
-                txt = f"{mode.get_width()}x{mode.get_height()}@{mode.get_refresh_rate()}Hz"
-                self.modes.append(str(i), txt)
-                if (
-                    mode.get_width() == self._monitor.get_width()
-                    and mode.get_height() == self._monitor.get_height()
-                    and mode.get_refresh_rate() == self._monitor.get_refresh_rate()
-                ):
-                    active_id = str(i)
-            if active_id:
-                self.modes.set_active_id(active_id)
-        finally:
-            self.modes.handler_unblock_by_func(self._on_mode)
+        # Use the _updating flag instead of signal blocking
+        self.modes.remove_all()
+        active_id = ""
+        for i, mode in enumerate(self._monitor.get_modes()):
+            txt = f"{mode.get_width()}x{mode.get_height()}@{mode.get_refresh_rate()}Hz"
+            self.modes.append(str(i), txt)
+            if (
+                mode.get_width() == self._monitor.get_width()
+                and mode.get_height() == self._monitor.get_height()
+                and mode.get_refresh_rate() == self._monitor.get_refresh_rate()
+            ):
+                active_id = str(i)
+        if active_id:
+            self.modes.set_active_id(active_id)
 
     def _populate_mirror_combo(self) -> None:
+        """Populate the mirror combobox (Hyprland only)"""
         if not self.mirror:
             return
         self.mirror.handler_block_by_func(self._on_mirror)
@@ -422,16 +393,11 @@ class MonitorConfigurationFormView:
         finally:
             self.mirror.handler_unblock_by_func(self._on_mirror)
 
-    def _notify_parent(self):
-        if self._notify_parent:
-            self._notify_parent(self._monitor)
-
     def get_selected_monitor(self) -> Optional[Monitor]:
+        """Get the currently selected monitor"""
         return self._monitor
 
     def __del__(self):
-        """Clean up handlers when the object is destroyed"""
+        """Clean up signal handlers when the object is destroyed"""
         if self._monitor_handler and self._monitor:
             self._monitor.disconnect(self._monitor_handler)
-        if self._config_handler and hasattr(self._config, "disconnect"):
-            self._config.disconnect(self._config_handler)

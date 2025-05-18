@@ -32,9 +32,19 @@ class HyprlandMonitor(Monitor):
         is_mirror = False
         if is_mirror_of is not None:
             is_mirror = True
-        transform_int = data.get("transform", 0)
-        monitor_transform_mode: MonitorTransformMode = MonitorTransformMode(
-            transform_int
+        hyprland_transform_map = {
+            0: MonitorTransformMode.NORMAL,
+            1: MonitorTransformMode.ROTATE_90,
+            2: MonitorTransformMode.ROTATE_180,
+            3: MonitorTransformMode.ROTATE_270,
+            4: MonitorTransformMode.FLIPPED,
+            5: MonitorTransformMode.FLIPPED_ROTATE_90,
+            6: MonitorTransformMode.FLIPPED_ROTATE_180,
+            7: MonitorTransformMode.FLIPPED_ROTATE_270,
+        }
+        monitor_transform_mode: MonitorTransformMode = (
+            hyprland_transform_map[data.get("transform", None)]
+            or MonitorTransformMode.NORMAL
         )
         modes = data.get("availableModes", [])
         if modes is not None and len(modes) > 0:

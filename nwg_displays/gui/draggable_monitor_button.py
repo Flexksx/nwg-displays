@@ -6,13 +6,19 @@ from gi.repository import Gdk, Gtk
 
 from nwg_displays.config.nwg_displays_config import ConfigurationService
 from nwg_displays.gui.monitor_button_indicator import MonitorButtonIndicator
-from nwg_displays.logger import logger
+from nwg_displays.logger import get_class_logger, logger
 from nwg_displays.monitor.monitor import Monitor
 from nwg_displays.monitor.monitor_transform_mode import MonitorTransformMode
 
 BUTTON_MASK = Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON1_MOTION_MASK
 DEFAULT_VIEW_SCALE = 0.15
 DEFAULT_SNAP_PX = 10
+ROTATED_TRANSFORMS = [
+    MonitorTransformMode.ROTATE_90,
+    MonitorTransformMode.ROTATE_270,
+    MonitorTransformMode.FLIPPED_ROTATE_270,
+    MonitorTransformMode.FLIPPED_ROTATE_90,
+]
 
 
 def nearest_multiple(value: int, step: int) -> int:
@@ -44,8 +50,8 @@ class DraggableMonitorButton(Gtk.Button):
         self.monitor = monitor
         self.canvas = canvas
         self.after_move = after_move
+        self.__logger = get_class_logger(self.__class__)
 
-        # Use the singleton configuration service
         self.config = ConfigurationService.get().get_config()
 
         self.drag = DragState()
@@ -70,7 +76,11 @@ class DraggableMonitorButton(Gtk.Button):
         self.show()
 
     def _init_appearance(self) -> None:
-        self.set_label(self.monitor.get_name())
+        self.set_label(
+            self.monitor.get_name()
+            if not self.config.use_desc
+            else self.monitor.get_model()
+        )
         self.set_always_show_image(True)
         self.set_property("name", "output")
         self.rescale_transform()
@@ -155,6 +165,7 @@ class DraggableMonitorButton(Gtk.Button):
         self.monitor.set_y(round(y_canvas / sf))
 
     def _on_model_change(self, _monitor: Monitor, field: str, _value) -> None:
+        self.__logger.debug(f"Model changed: {field} with value {_value}")
         if field in {"x", "y"}:
             self.canvas.move(
                 self,
@@ -164,23 +175,50 @@ class DraggableMonitorButton(Gtk.Button):
         if field in {"width", "height", "scale", "transform"}:
             self.rescale_transform()
 
+            if field == "transform":
+                self.canvas.move(
+                    self,
+                    round(self.monitor.get_x() * self.scale_factor),
+                    round(self.monitor.get_y() * self.scale_factor),
+                )
+
+        if field == "model" or field == "name":
+            self._update_label()
+
+    def _update_label(self) -> None:
+        """Update the button label based on current config preferences"""
+        self.set_label(
+            self.monitor.get_name()
+            if not self.config.use_desc
+            else self.monitor.get_model()
+        )
+
     def get_logical_width(self) -> float:
-        t = self.monitor.get_transform()
-        if t in (MonitorTransformMode.ROTATE_90, MonitorTransformMode.ROTATE_270):
+        current_transform = self.monitor.get_transform()
+        if current_transform in ROTATED_TRANSFORMS:
             return self.monitor.get_height() / self.monitor.get_scale()
         return self.monitor.get_width() / self.monitor.get_scale()
 
     def get_logical_height(self) -> float:
-        t = self.monitor.get_transform()
-        if t in (MonitorTransformMode.ROTATE_90, MonitorTransformMode.ROTATE_270):
+        current_transform = self.monitor.get_transform()
+        if current_transform in ROTATED_TRANSFORMS:
             return self.monitor.get_width() / self.monitor.get_scale()
         return self.monitor.get_height() / self.monitor.get_scale()
 
     def rescale_transform(self) -> None:
-        self.set_size_request(
-            round(self.get_logical_width() * self.scale_factor),
-            round(self.get_logical_height() * self.scale_factor),
+        self.__logger.debug(
+            "Rescaling transform for button with monitor %s", self.monitor
         )
+        logical_width = round(self.get_logical_width() * self.scale_factor)
+        logical_height = round(self.get_logical_height() * self.scale_factor)
+        self.__logger.debug(
+            "Rescaling transform for button with monitor %s, logical width: %d, logical height: %d",
+            self.monitor,
+            logical_width,
+            logical_height,
+        )
+
+        self.set_size_request(logical_width, logical_height)
 
     def _select_exclusively(self) -> None:
         for btn in self._siblings():
@@ -213,10 +251,8 @@ class DraggableMonitorButton(Gtk.Button):
 
     @property
     def snap_threshold(self) -> int:
-        # Make snap sensitivity more user-friendly (scaling as in old code)
         raw = self.config.snap_threshold
         scale = self.scale_factor
-        # You can adjust the multiplier below to increase/decrease sensitivity
         return max(1, round(raw * scale * 10))
 
     def _siblings(self) -> List["DraggableMonitorButton"]:
