@@ -94,14 +94,46 @@ class SwayMonitor(Monitor):
     def get_backend(self):
         return MonitorBackend.SWAY
 
-    def to_config_string(self):
-        return (
-            f"{self.get_name()} "
-            f"{self.get_x()},{self.get_y()} "
-            f"scale,{self.get_scale()} "
-            f"transform,{self.config.transform} "
-            f"{int(self.get_logical_width())}x{int(self.get_logical_height())}@{self.get_refresh_rate()}"
-        )
+    def to_config_string(self, use_desc: bool = False) -> str:
+        """Convert the monitor config to Sway configuration format."""
+        name = self._get_identifier(use_desc)
+
+        lines = [f'output "{name}" {{']
+
+        custom_mode_str = "--custom" if self._custom_mode else ""
+        mode = self.get_selected_mode()
+        if mode:
+            width, height, refresh = (
+                mode.get_width(),
+                mode.get_height(),
+                mode.get_refresh_rate(),
+            )
+        else:
+            width, height, refresh = (
+                self.get_width(),
+                self.get_height(),
+                self.get_refresh_rate(),
+            )
+
+        lines.append(f"    mode {custom_mode_str} {width}x{height}@{refresh}Hz")
+
+        lines.append(f"    pos {self.get_x()} {self.get_y()}")
+
+        lines.append(f"    transform {self.get_transform()}")
+
+        lines.append(f"    scale {self.get_scale()}")
+
+        lines.append(f"    scale_filter {self.get_scale_filter()}")
+
+        adaptive_sync = "on" if self.get_is_adaptive_sync_enabled() else "off"
+        lines.append(f"    adaptive_sync {adaptive_sync}")
+
+        dpms = "on" if self.get_is_dpms_enabled() else "off"
+        lines.append(f"    dpms {dpms}")
+
+        lines.append("}")
+
+        return "\n".join(lines)
 
     def is_mirror_of(self, other):
         return False

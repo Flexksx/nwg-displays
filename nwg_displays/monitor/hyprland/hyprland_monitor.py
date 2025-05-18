@@ -46,11 +46,9 @@ class HyprlandMonitor(Monitor):
             hyprland_transform_map[data.get("transform", None)]
             or MonitorTransformMode.NORMAL
         )
-        modes = data.get("availableModes", [])
-        if modes is not None and len(modes) > 0:
-            modes = [
-                HyprlandMonitorMode.from_str(mode) for mode in data.get("modes", [])
-            ]
+        availableModes = data.get("availableModes", [])
+        if availableModes is not None and len(availableModes) > 0:
+            modes = [HyprlandMonitorMode.from_str(mode) for mode in availableModes]
 
         config = MonitorConfiguration(
             name=data["name"],
@@ -77,8 +75,18 @@ class HyprlandMonitor(Monitor):
         return cls(config, data)
 
     def to_config_string(self):
-        position = f"{self.get_x()},{self.get_y()}"
+        position = f"{self.get_x()}x{self.get_y()}"
         scale = f"{self.get_scale()}"
-        transform = f"transform, {self.get_transform()}"
+        transform_map = {
+            MonitorTransformMode.NORMAL: 0,
+            MonitorTransformMode.ROTATE_90: 1,
+            MonitorTransformMode.ROTATE_180: 2,
+            MonitorTransformMode.ROTATE_270: 3,
+            MonitorTransformMode.FLIPPED: 4,
+            MonitorTransformMode.FLIPPED_ROTATE_90: 5,
+            MonitorTransformMode.FLIPPED_ROTATE_180: 6,
+            MonitorTransformMode.FLIPPED_ROTATE_270: 7,
+        }
+        transform = f"transform, {transform_map[self.get_transform()]}"
         mode = f"{self.get_width()}x{self.get_height()}@{self.get_refresh_rate()}"
-        return f"{self.get_name()} {position} {scale} {transform} {mode}"
+        return f"monitor = {self.get_name()}, {mode}, {position}, {scale}, {transform}"

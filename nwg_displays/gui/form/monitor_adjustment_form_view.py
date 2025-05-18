@@ -148,13 +148,11 @@ class MonitorAdjustmentFormView(GObject.Object):
 
     def set_monitor(self, monitor: Monitor):
         """Set the monitor to control"""
-        # Disconnect from previous monitor
         if self._monitor_handler and self._monitor:
             self._monitor.disconnect(self._monitor_handler)
 
         self._monitor = monitor
 
-        # Connect to monitor property changes
         if monitor:
             self._monitor_handler = monitor.connect(
                 "property-changed", self._on_monitor_change

@@ -8,6 +8,7 @@ from nwg_displays.gui.draggable_monitor_button import DraggableMonitorButton
 from nwg_displays.gui.form.boolean_form import BooleanForm
 from nwg_displays.gui.form.configuration_form_view import ConfigurationFormView
 from nwg_displays.gui.form.monitor_adjustment_form_view import MonitorAdjustmentFormView
+from nwg_displays.gui.form.monitor_modes_form_view import MonitorDisplayFormView
 from nwg_displays.gui.form.text_form import TextForm
 from nwg_displays.logger import get_class_logger
 from nwg_displays.monitor.monitor import Monitor
@@ -80,6 +81,20 @@ class MonitorConfigurationFormView:
             "monitor-property-changed", self._on_monitor_property_changed
         )
 
+        self._monitor_display_form_view = MonitorDisplayFormView(
+            builder=self._builder,
+            vocabulary=self._vocab,
+        )
+        self._monitor_display_form_view.connect(
+            "transform-changed", self._on_monitor_transform_changed
+        )
+        self._monitor_display_form_view.connect(
+            "mode-changed", self._on_monitor_mode_changed
+        )
+        self._monitor_display_form_view.connect(
+            "display-property-changed", self._on_monitor_display_property_changed
+        )
+
         if monitor_buttons:
             self.set_selected_monitor(monitor_buttons[0].get_monitor())
 
@@ -124,15 +139,9 @@ class MonitorConfigurationFormView:
             ),
         )
 
-        # Other combo box widgets
+        # Scale filter combobox (not part of display form since it's not a core display property)
         self.scale_filter: Gtk.ComboBox = b.get_object("scale-filter")
         self.scale_filter.connect("changed", self._on_scale_filter)
-
-        self.transform: Gtk.ComboBox = b.get_object("transform")
-        self.transform.connect("changed", self._on_transform)
-
-        self.modes: Gtk.ComboBox = b.get_object("modes")
-        self.modes.connect("changed", self._on_mode)
 
         # Hyprland-specific widgets
         self.ten_bit: Optional[Gtk.CheckButton] = None
@@ -158,10 +167,11 @@ class MonitorConfigurationFormView:
             grid.attach(self.mirror, 7, 4, 1, 1)
 
     def set_selected_monitor(self, m: Monitor) -> None:
-        # Set monitor on the adjustment form (this handles disconnecting from previous monitor)
+        # Set monitor on all form views (they handle disconnecting from previous monitor)
         self._monitor_adjustment_form_view.set_monitor(m)
+        self._monitor_display_form_view.set_monitor(m)
 
-        # Handle monitor property changes for non-adjustment properties
+        # Handle monitor property changes for remaining properties
         if self._monitor_handler and self._monitor:
             self._monitor.disconnect(self._monitor_handler)
 
@@ -170,21 +180,22 @@ class MonitorConfigurationFormView:
         self._refresh_all()
 
     def _on_model_change(self, _m: Monitor, field: str, _value) -> None:
-        """Handle monitor property changes for non-adjustment properties"""
+        """Handle monitor property changes for non-delegated properties"""
         if self._updating:
             return
         self._updating = True
         try:
+            # Only handle properties not delegated to other form views
             if field == "dpms":
-                self.dpms.set_active(self._monitor.get_is_dpms_enabled())
+                self.dpms.set_value(self._monitor.get_is_dpms_enabled())
             elif field == "adaptive_sync":
-                self.sync.set_active(self._monitor.get_is_adaptive_sync_enabled())
-            elif field in {"transform", "modes"}:
-                self._refresh_transform_and_modes()
+                self.sync.set_value(self._monitor.get_is_adaptive_sync_enabled())
             elif self.ten_bit and field == "ten_bit":
                 self.ten_bit.set_active(self._monitor.get_is_ten_bit_enabled())
             elif self.mirror and field == "mirror":
                 self._populate_mirror_combo()
+            # Note: transform, modes, width, height, scale, refresh_rate, x, y
+            # are now handled by the respective form views
         finally:
             self._updating = False
 
@@ -278,17 +289,6 @@ class MonitorConfigurationFormView:
         if self._notify_parent:
             self._notify_parent(self._monitor)
 
-    def _on_transform(self, box: Gtk.ComboBox):
-        """Handle transform combobox changes"""
-        if self._updating or self._monitor is None:
-            return
-        tid = box.get_active_id()
-        if tid:
-            transform = MonitorTransformMode(tid)
-            self._monitor.set_transform(transform)
-            if self._notify_parent:
-                self._notify_parent(self._monitor)
-
     def _on_scale_filter(self, box: Gtk.ComboBox):
         """Handle scale filter combobox changes"""
         if self._updating or self._monitor is None:
@@ -296,20 +296,6 @@ class MonitorConfigurationFormView:
         sid = box.get_active_id()
         if sid and hasattr(self._monitor, "set_scale_filter"):
             self._monitor.set_scale_filter(sid)
-            if self._notify_parent:
-                self._notify_parent(self._monitor)
-
-    def _on_mode(self, box: Gtk.ComboBox):
-        """Handle mode combobox changes"""
-        if self._updating or self._monitor is None:
-            return
-        idx = box.get_active()
-        modes = self._monitor.get_modes()
-        if 0 <= idx < len(modes):
-            mode: MonitorMode = modes[idx]
-            self._monitor.set_width(mode.get_width())
-            self._monitor.set_height(mode.get_height())
-            self._monitor.set_refresh_rate(mode.get_refresh_rate())
             if self._notify_parent:
                 self._notify_parent(self._monitor)
 
@@ -335,21 +321,21 @@ class MonitorConfigurationFormView:
             return
         self._updating = True
         try:
-            # Basic info
+            # Basic info (still handled locally)
             self.name.set_value(self._monitor.get_name())
             self.desc.set_value(self._monitor.get_model()[:48])
 
-            # Boolean properties
+            # Boolean properties (still handled locally)
             self.dpms.set_value(self._monitor.get_is_dpms_enabled())
             self.sync.set_value(self._monitor.get_is_adaptive_sync_enabled())
 
-            # Position, size, scale, refresh (handled by adjustment form)
+            # Position, size, scale, refresh (delegated to adjustment form)
             self._monitor_adjustment_form_view.refresh_all()
 
-            # Transform and modes
-            self._refresh_transform_and_modes()
+            # Transform and modes (delegated to display form)
+            self._monitor_display_form_view.refresh_all()
 
-            # Hyprland-specific properties
+            # Hyprland-specific properties (still handled locally)
             if self.ten_bit:
                 self.ten_bit.set_active(self._monitor.get_is_ten_bit_enabled())
             if self.mirror:
@@ -361,7 +347,6 @@ class MonitorConfigurationFormView:
         """Refresh transform and modes comboboxes"""
         self.transform.set_active_id(str(self._monitor.get_transform()))
 
-        # Use the _updating flag instead of signal blocking
         self.modes.remove_all()
         active_id = ""
         for i, mode in enumerate(self._monitor.get_modes()):
@@ -401,3 +386,32 @@ class MonitorConfigurationFormView:
         """Clean up signal handlers when the object is destroyed"""
         if self._monitor_handler and self._monitor:
             self._monitor.disconnect(self._monitor_handler)
+
+    def _on_monitor_transform_changed(
+        self, display_form, monitor: Monitor, transform: MonitorTransformMode
+    ):
+        """Handle monitor transform changes from display form"""
+        self.__logger.debug(
+            f"Monitor transform changed: {monitor.get_name()} -> {transform}"
+        )
+        if self._notify_parent:
+            self._notify_parent(monitor)
+
+    def _on_monitor_mode_changed(
+        self, display_form, monitor: Monitor, mode: MonitorMode
+    ):
+        """Handle monitor mode changes from display form"""
+        self.__logger.debug(
+            f"Monitor mode changed: {monitor.get_name()} -> "
+            f"{mode.get_width()}x{mode.get_height()}@{mode.get_refresh_rate()}Hz"
+        )
+        if self._notify_parent:
+            self._notify_parent(monitor)
+
+    def _on_monitor_display_property_changed(
+        self, display_form, monitor: Monitor, property_name: str, new_value
+    ):
+        """Handle general monitor display property changes from display form"""
+        self.__logger.debug(
+            f"Monitor display property changed: {monitor.get_name()}.{property_name} = {new_value}"
+        )

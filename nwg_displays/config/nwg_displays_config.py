@@ -209,7 +209,21 @@ class ConfigurationService:
                 data = NwgDisplaysConfig().to_dict()
                 save_json(data, self._config_path)
             else:
-                data = load_json(self._config_path)
+                try:
+                    data = load_json(self._config_path)
+                    # Check if data is None or not a dictionary
+                    if data is None or not isinstance(data, dict):
+                        self.logger.warning(
+                            f"Invalid config file format in '{self._config_path}', using defaults"
+                        )
+                        data = NwgDisplaysConfig().to_dict()
+                        save_json(data, self._config_path)
+                except Exception as e:
+                    self.logger.error(
+                        f"Failed to load config from '{self._config_path}': {e}. Falling back to default config."
+                    )
+                    data = NwgDisplaysConfig().to_dict()
+                    save_json(data, self._config_path)
 
             # Ensure all default keys exist
             key_missing = False
