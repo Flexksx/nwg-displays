@@ -576,10 +576,13 @@ def apply_settings(
             cmd = "on" if db.dpms else "off"
             hyprctl(f"dispatch dpms {cmd} {db.name}")
         """
-        lines = [
-            monitor_button.get_monitor().to_config_string()
-            for monitor_button in monitor_buttons
-        ]
+        lines = []
+        for monitor_button in monitor_buttons:
+            monitor = monitor_button.get_monitor()
+            lines.append(monitor.to_config_string())
+            if monitor.get_is_dpms_enabled():
+                cmd = "on" if monitor.get_is_dpms_enabled() else "off"
+                hyprctl(f"dispatch dpms {cmd} {monitor.name}")
 
         print("[Saving]")
         for line in lines:
