@@ -531,51 +531,6 @@ def apply_settings(
         create_confirm_win(backup, outputs_path)
 
     elif session == SessionType.HYPRLAND:
-        """transforms = {
-            "normal": 0,
-            "90": 1,
-            "180": 2,
-            "270": 3,
-            "flipped": 4,
-            "flipped-90": 5,
-            "flipped-180": 6,
-            "flipped-270": 7,
-        }
-        for db in monitor_buttons:
-            name = (
-                db.name
-                if not use_desc
-                else "desc:{}".format(db.description.replace("#", "##"))
-            )
-            db_names.append(name)
-
-            line = "monitor={},{}x{}@{},{}x{},{}".format(
-                name,
-                db.physical_width,
-                db.physical_height,
-                db.refresh,
-                db.x,
-                db.y,
-                db.scale,
-            )
-            if db.mirror:
-                line += ",mirror,{}".format(db.mirror)
-            if db.ten_bit:
-                line += ",bitdepth,10"
-
-            lines.append(line)
-            if db.transform != "normal":
-                lines.append(
-                    "monitor={},transform,{}".format(name, transforms[db.transform])
-                )
-
-            # avoid looking up the hardware name
-            if db.name in outputs_activity and not outputs_activity[db.name]:
-                lines.append("monitor={},disable".format(name))
-
-            cmd = "on" if db.dpms else "off"
-            hyprctl(f"dispatch dpms {cmd} {db.name}")
-        """
         lines = []
         for monitor_button in monitor_buttons:
             monitor = monitor_button.get_monitor()

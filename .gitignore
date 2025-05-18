@@ -7,3 +7,5 @@
 /nwg_displays/__pycache__
 /result
 *.pyc
+
+*.log
