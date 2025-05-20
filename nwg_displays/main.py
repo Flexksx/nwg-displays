@@ -537,7 +537,7 @@ def apply_settings(
             lines.append(monitor.to_config_string())
             if monitor.get_is_dpms_enabled():
                 cmd = "on" if monitor.get_is_dpms_enabled() else "off"
-                hyprctl(f"dispatch dpms {cmd} {monitor.name}")
+                hyprctl(f"dispatch dpms {cmd} {monitor.get_name()}")
 
         print("[Saving]")
         for line in lines:
@@ -569,7 +569,9 @@ def create_confirm_win(backup, path):
     grid.set_column_homogeneous(True)
     grid.set_property("margin", 12)
     confirm_win.add(grid)
-    lbl = Gtk.Label.new("{}?".format(vocabulary["keep-current-settings"]))
+    lbl = Gtk.Label.new(
+        "{}?".format(vocabulary.get("keep-current-settings", "Keep current settings"))
+    )
     grid.attach(lbl, 0, 0, 2, 1)
 
     global counter
@@ -577,12 +579,12 @@ def create_confirm_win(backup, path):
 
     cnt_lbl = Gtk.Label.new(str(counter))
     grid.attach(cnt_lbl, 0, 1, 2, 1)
-    btn_restore = Gtk.Button.new_with_label(vocabulary["restore"])
+    btn_restore = Gtk.Button.new_with_label(vocabulary.get("restore", "Restore"))
 
     btn_restore.connect("clicked", restore_old_settings, backup, path)
 
     grid.attach(btn_restore, 0, 2, 1, 1)
-    btn_keep = Gtk.Button.new_with_label(vocabulary["keep"])
+    btn_keep = Gtk.Button.new_with_label(vocabulary.get("keep", "Keep"))
     btn_keep.connect("clicked", keep_current_settings)
     grid.attach(btn_keep, 1, 2, 1, 1)
 
