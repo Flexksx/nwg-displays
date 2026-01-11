@@ -1,0 +1,42 @@
+[project]
+name = "nwg-displays"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "i3ipc>=2.2.1",
+    "pydantic>=2.12.5",
+    "pygobject>=3.54.5",
+    "setuptools>=80.9.0",
+]
+
+[dependency-groups]
+dev = ["ruff>=0.14.11"]
+
+
+[tool.ruff]
+line-length = 88
+indent-width = 4
+target-version = "py312"
+extend-exclude = [".venv", "dist", "__pycache__", "alembic"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RET", "ARG", "PL", "RUF"]
+ignore = ["PLR0913", "PLR2004", "PLR0911"]
+fixable = ["ALL"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["expert_systems", "snake", "cnn", "nonograms"]
+section-order = [
+    "future",
+    "standard-library",
+    "third-party",
+    "first-party",
+    "local-folder",
+]
+lines-after-imports = 2
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

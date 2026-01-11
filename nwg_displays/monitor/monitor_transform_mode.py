@@ -1,7 +1,7 @@
-from enum import IntEnum, Enum
+from enum import StrEnum
 
 
-class MonitorTransformMode(Enum):
+class MonitorTransformMode(StrEnum):
     NORMAL = "normal"
     ROTATE_90 = "90"
     ROTATE_180 = "180"

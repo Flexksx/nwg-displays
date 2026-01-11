@@ -1,53 +1,54 @@
 {
-  description = "An output management utility for the sway Wayland compositor, inspired by wdisplays and wlay.";
+  description = "nwg-displays development environment with uv and GTK";
+
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    flake-parts.url = "github:hercules-ci/flake-parts";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = inputs@{ self, flake-parts, nixpkgs, ...  }:
-    flake-parts.lib.mkFlake {inherit inputs;} {
-      # TODO: This probably works on more linux architectures but I haven't tested them
-      systems = ["x86_64-linux"];
-      imports = [];
+  outputs =
+    {
+      self,
+      nixpkgs,
+      flake-utils,
+      ...
+    }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
+      let
+        pkgs = import nixpkgs { inherit system; };
 
-      perSystem = { config, inputs', pkgs, system, ... }:
-        {
-          packages = rec {
-            default = nwg-displays;
-            nwg-displays = pkgs.python3Packages.buildPythonApplication
-            rec {
-              pname = "nwg-displays";
-              version = "0.1.4";
-              doCheck = false;
-              src = self;
+        runtimeDeps = with pkgs; [
+          gtk3
+          pango
+          gdk-pixbuf
+          atk
+          glib
+          gtk-layer-shell
+          gobject-introspection
+        ];
+      in
+      {
+        devShells.default = pkgs.mkShell {
+          name = "nwg-displays-dev";
 
-              nativeBuildInputs = [
-                pkgs.wrapGAppsHook
-                pkgs.gobject-introspection
-              ];
+          buildInputs =
+            with pkgs;
+            [
+              python312
+              uv
 
-              buildInputs = with pkgs; [
-                gtk3
-              ];
+              pkg-config
+              gcc
+            ]
+            ++ runtimeDeps;
 
-              propagatedBuildInputs = with pkgs; [
-                pango
-                gtk-layer-shell
-                gdk-pixbuf
-                atk
-                python3Packages.i3ipc
-                python3Packages.pygobject3
-                python3Packages.gst-python
-              ];
-
-              dontWrapGApps = true;
-
-              preFixup = ''
-                makeWrapperArgs+=("''${gappsWrapperArgs[@]}");
-              '';
-            };
-          };
+          shellHook = ''
+            export GI_TYPELIB_PATH="${pkgs.lib.makeSearchPath "lib/girepository-1.0" runtimeDeps}"
+            export XDG_DATA_DIRS="${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}:${pkgs.gtk3}/share/gsettings-schemas/${pkgs.gtk3.name}:$XDG_DATA_DIRS"
+            export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath runtimeDeps}:$LD_LIBRARY_PATH"
+          '';
         };
-      };
+      }
+    );
 }

@@ -1,10 +1,10 @@
-from typing import List, Optional, Tuple
 from gi.repository import Gdk, GObject
+
+from nwg_displays.logger import get_class_logger
 from nwg_displays.monitor.backend import MonitorBackend
 from nwg_displays.monitor.monitor_base_configuration import MonitorConfiguration
 from nwg_displays.monitor.monitor_mode import MonitorMode
 from nwg_displays.monitor.monitor_transform_mode import MonitorTransformMode
-from nwg_displays.logger import logger, get_class_logger
 
 
 class Monitor(GObject.GObject):
@@ -62,7 +62,7 @@ class Monitor(GObject.GObject):
     def get_height(self) -> int:
         return self.__config.physical_height
 
-    def get_size(self) -> Tuple[int, int]:
+    def get_size(self) -> tuple[int, int]:
         return (self.get_width(), self.get_height())
 
     def get_refresh_rate(self) -> float:
@@ -80,7 +80,7 @@ class Monitor(GObject.GObject):
     def get_backend(self) -> MonitorBackend:
         return self.__config.backend
 
-    def get_modes(self) -> List[MonitorMode]:
+    def get_modes(self) -> list[MonitorMode]:
         return self.__config.modes
 
     def get_transform(self) -> MonitorTransformMode:
@@ -89,16 +89,16 @@ class Monitor(GObject.GObject):
     def get_is_mirror(self) -> bool:
         return self.__config.is_mirror
 
-    def get_is_mirror_of(self) -> Optional[str]:
+    def get_is_mirror_of(self) -> str | None:
         return self.__config.is_mirror_of
 
-    def get_gdk_monitor(self) -> Optional[Gdk.Monitor]:
+    def get_gdk_monitor(self) -> Gdk.Monitor | None:
         return self.__config.gdk_monitor
 
     def get_scale_filter(self) -> str:
         return getattr(self.__config, "scale_filter", "nearest")
 
-    def get_selected_mode(self) -> Optional[MonitorMode]:
+    def get_selected_mode(self) -> MonitorMode | None:
         return self.__selected_mode
 
     def set_x(self, value: int):
@@ -164,7 +164,7 @@ class Monitor(GObject.GObject):
             self.__config.gdk_monitor = monitor
             self._emit_change("gdk_monitor", monitor)
 
-    def set_mirror(self, target_name: Optional[str]):
+    def set_mirror(self, target_name: str | None):
         """Hyprland-specific helper: make this display a mirror of *target* or clear."""
         self.__config.is_mirror_of = target_name
         self.__config.is_mirror = target_name is not None

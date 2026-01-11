@@ -1,6 +1,6 @@
 import os
 
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 
 def read(f_name):
@@ -8,23 +8,21 @@ def read(f_name):
 
 
 setup(
-    name='nwg-displays',
-    version='0.3.25',
-    description='nwg-shell output configuration utility',
+    name="nwg-displays",
+    version="0.3.25",
+    description="nwg-shell output configuration utility",
     packages=find_packages(),
     include_package_data=True,
-    package_data={
-        "": ["resources/*", "langs/*"]
-    },
-    url='https://github.com/nwg-piotr/nwg-displays',
-    license='MIT',
-    author='Piotr Miller',
-    author_email='nwg.piotr@gmail.com',
-    python_requires='>=3.6.0',
+    package_data={"": ["resources/*", "langs/*"]},
+    url="https://github.com/nwg-piotr/nwg-displays",
+    license="MIT",
+    author="Piotr Miller",
+    author_email="nwg.piotr@gmail.com",
+    python_requires=">=3.6.0",
     install_requires=[],
     entry_points={
-        'gui_scripts': [
-            'nwg-displays = nwg_displays.main:main',
+        "gui_scripts": [
+            "nwg-displays = nwg_displays.main:main",
         ]
-    }
+    },
 )

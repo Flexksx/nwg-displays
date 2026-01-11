@@ -1,6 +1,7 @@
 {
-    "cSpell.words": [
-        "hyprctl",
-        "Hyprland"
-    ]
+  "cSpell.words": ["dpms", "hyprctl", "Hyprland"],
+  "editor.codeActionsOnSave": {
+    "source.fixAll.ruff": "always",
+    "source.organizeImports.ruff": "always"
+  }
 }
