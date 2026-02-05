@@ -1,0 +1,84 @@
+[project]
+name = "nwg-displays-v2"
+version = "0.1.0"
+description = "Modernized nwg-displays rewrite"
+readme = "README.md"
+requires-python = ">=3.14"
+license = { text = "MIT" }
+authors = [{ name = "Piotr Miller", email = "nwg.piotr@gmail.com" }]
+dependencies = [
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.12.0",
+    "rich>=14.2.0",
+    "pygobject>=3.50.0",
+]
+
+[project.gui-scripts]
+nwg-displays = "nwg_displays.main:main"
+
+[dependency-groups]
+dev = ["ruff>=0.14.8"]
+
+[tool.uv]
+package = true
+
+[tool.setuptools]
+packages = ["nwg_displays"]
+
+[tool.setuptools.package-data]
+nwg_displays = ["resources/*", "langs/*"]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 88
+indent-width = 4
+target-version = "py314"
+extend-exclude = [
+    ".eggs",
+    ".git",
+    ".venv",
+    "_build",
+    "build",
+    "dist",
+    "__pycache__",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "W",
+    "I",
+    "UP",
+    "B",
+    "SIM",
+    "C4",
+    "PIE",
+    "T20",
+    "RET",
+    "ARG",
+    "PTH",
+    "ERA",
+    "PL",
+    "RUF",
+]
+ignore = ["PLR0913", "PLR2004", "PLR0911", "PLR0912", "PLR0915", "ERA001"]
+fixable = ["ALL"]
+
+[tool.ruff.lint.isort]
+section-order = [
+    "future",
+    "standard-library",
+    "third-party",
+    "first-party",
+    "local-folder",
+]
+split-on-trailing-comma = true
+lines-after-imports = 2
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
