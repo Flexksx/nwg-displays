@@ -17,7 +17,10 @@ dependencies = [
 nwg-displays = "nwg_displays.main:main"
 
 [dependency-groups]
-dev = ["ruff>=0.14.8"]
+dev = [
+    "ruff>=0.14.8",
+    "ty>=0.0.15",
+]
 
 [tool.uv]
 package = true
@@ -31,6 +34,10 @@ nwg_displays = ["resources/*", "langs/*"]
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.ty.environment]
+root = ["nwg_displays"]
+
 
 [tool.ruff]
 line-length = 88

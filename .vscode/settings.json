@@ -1,7 +1,11 @@
 {
     "cSpell.words": [
+        "dpms",
         "pydantic",
         "pygobject",
         "setuptools"
-    ]
+    ],
+    "python.languageServer": "None",
+    "ty.completions.autoImport": true,
+    "python.defaultInterpreterPath": "${workspaceFolder}/venv/bin/python"
 }
